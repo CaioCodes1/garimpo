@@ -162,41 +162,59 @@ export async function verificarPendentes(db: Banco, o: OpcoesVerificacao): Promi
     )
     .all(validade) as unknown as Pendente[];
 
-  const tarefas = pendentes
-    .map((p) => ({
-      p,
-      alvo: alvoDaEmpresa(p.site_osm, p.email, p.email_repeticoes < o.limiteContador, o.provedores),
-    }))
-    .filter((t): t is { p: Pendente; alvo: Alvo } => t.alvo !== null);
-  o.log?.(`${tarefas.length} domínios para verificar.`);
-
-  const contagem: Record<EstadoVerificacao, number> = { ok: 0, sem_https: 0, sem_site: 0, fora_do_ar: 0, inconclusivo: 0 };
-  const resultados: ({ cnpj: string; alvo: string; estado: EstadoVerificacao } & Historico)[] = [];
-  let proxima = 0;
-  const trabalhador = async () => {
-    while (proxima < tarefas.length) {
-      const { p, alvo } = tarefas[proxima++]!;
-      const resultado = await verificarAlvo(alvo, o.sonda);
-      // Alvo novo (site mudou no OSM, e-mail mudou) não herda falhas do alvo antigo.
-      const anterior = p.alvo_anterior === alvo.host && p.falhas !== null
-        ? { falhas: p.falhas, primeiraFalhaEm: p.primeira_falha_em }
-        : null;
-      const proximo = proximoEstado(resultado, anterior, agora());
-      contagem[proximo.estado]++;
-      resultados.push({ cnpj: p.cnpj, alvo: alvo.host, ...proximo });
-      if (resultados.length % 100 === 0) o.log?.(`  ${resultados.length}/${tarefas.length}`);
-    }
-  };
-  await Promise.all(Array.from({ length: o.simultaneas ?? 5 }, trabalhador));
+  // Várias empresas podem usar o mesmo domínio: cada domínio é testado uma vez só.
+  const porAlvo = new Map<string, { alvo: Alvo; empresas: Pendente[] }>();
+  for (const p of pendentes) {
+    const alvo = alvoDaEmpresa(p.site_osm, p.email, p.email_repeticoes < o.limiteContador, o.provedores);
+    if (!alvo) continue;
+    const chave = `${alvo.origem}:${alvo.host}`;
+    const grupo = porAlvo.get(chave) ?? { alvo, empresas: [] };
+    grupo.empresas.push(p);
+    porAlvo.set(chave, grupo);
+  }
+  const grupos = [...porAlvo.values()];
+  o.log?.(`${grupos.length} domínios para verificar (${pendentes.length} empresas candidatas).`);
 
   const gravar = db.prepare(
     `INSERT INTO verificacoes (cnpj, alvo, estado, falhas, primeira_falha_em, verificado_em) VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT (cnpj) DO UPDATE SET alvo = excluded.alvo, estado = excluded.estado, falhas = excluded.falhas,
        primeira_falha_em = excluded.primeira_falha_em, verificado_em = excluded.verificado_em`,
   );
-  const quando = agora().toISOString();
-  emTransacao(db, () => {
-    for (const r of resultados) gravar.run(r.cnpj, r.alvo, r.estado, r.falhas, r.primeiraFalhaEm, quando);
-  });
+  // Grava aos poucos: se o processo cair no meio, o que já foi verificado fica.
+  let fila: ({ cnpj: string; alvo: string; estado: EstadoVerificacao } & Historico)[] = [];
+  const descarregar = () => {
+    if (fila.length === 0) return;
+    const lote = fila;
+    fila = [];
+    const quando = agora().toISOString();
+    emTransacao(db, () => {
+      for (const r of lote) gravar.run(r.cnpj, r.alvo, r.estado, r.falhas, r.primeiraFalhaEm, quando);
+    });
+  };
+
+  const contagem: Record<EstadoVerificacao, number> = { ok: 0, sem_https: 0, sem_site: 0, fora_do_ar: 0, inconclusivo: 0 };
+  let proxima = 0;
+  let feitos = 0;
+  const trabalhador = async () => {
+    while (proxima < grupos.length) {
+      const { alvo, empresas } = grupos[proxima++]!;
+      const resultado = await verificarAlvo(alvo, o.sonda);
+      for (const p of empresas) {
+        // Alvo novo (site mudou no OSM, e-mail mudou) não herda falhas do alvo antigo.
+        const anterior = p.alvo_anterior === alvo.host && p.falhas !== null
+          ? { falhas: p.falhas, primeiraFalhaEm: p.primeira_falha_em }
+          : null;
+        const proximo = proximoEstado(resultado, anterior, agora());
+        contagem[proximo.estado]++;
+        fila.push({ cnpj: p.cnpj, alvo: alvo.host, ...proximo });
+      }
+      if (++feitos % 50 === 0) {
+        descarregar();
+        o.log?.(`  ${feitos}/${grupos.length} domínios`);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: o.simultaneas ?? 10 }, trabalhador));
+  descarregar();
   return contagem;
 }

@@ -1,5 +1,5 @@
 import type { NomeModelo, Perfil } from "../config";
-import { primeiraMinuscula, tituloCaso } from "../lib/texto";
+import { bairroExibicao, primeiraMinuscula, tituloCaso } from "../lib/texto";
 
 export const LINHA_DE_SAIDA = "Se não fizer sentido agora, é só me avisar que não mando mais.";
 
@@ -23,7 +23,7 @@ export function variaveis(d: DadosMensagem, perfil: Perfil): Record<string, stri
   return {
     nome: d.nome,
     ramo: primeiraMinuscula(d.ramoRotulo),
-    onde: d.bairro.trim() ? `no bairro ${tituloCaso(d.bairro)}` : `em ${tituloCaso(d.municipio)}`,
+    onde: d.bairro.trim() ? `no bairro ${bairroExibicao(d.bairro)}` : `em ${tituloCaso(d.municipio)}`,
     tempo_aberta: d.tempoAberta,
     site: d.site,
     problema: PROBLEMAS[d.estadoVerificacao ?? ""] ?? "ele não abriu",

@@ -31,6 +31,8 @@ export function SeletorStatus({ cnpj, status }: { cnpj: string; status: Status }
         Status
       </label>
       <select
+        // O React 19 limpa o formulário depois da ação; a chave recria o campo com o status já gravado.
+        key={status}
         id={`status-${cnpj}`}
         name="status"
         defaultValue={status}

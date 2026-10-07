@@ -1,4 +1,5 @@
 import type { Banco } from "../db/banco";
+import { normalizarBairro, tituloCaso } from "../lib/texto";
 
 export const STATUS = ["novo", "mensagem_enviada", "respondeu", "proposta", "fechado", "perdido", "nao_contatar"] as const;
 export type Status = (typeof STATUS)[number];
@@ -53,7 +54,7 @@ export interface Lead {
   contatado_em: string | null;
 }
 
-function onde(f: Filtros, hoje: Date): { sql: string; params: (string | number)[] } {
+function onde(db: Banco, f: Filtros, hoje: Date): { sql: string; params: (string | number)[] } {
   const partes = ["e.situacao = 'ativa'"];
   const params: (string | number)[] = [];
   if (f.status) {
@@ -63,8 +64,13 @@ function onde(f: Filtros, hoje: Date): { sql: string; params: (string | number)[
     partes.push("COALESCE(f.status, 'novo') <> 'nao_contatar'");
   }
   if (f.bairro) {
-    partes.push("e.bairro = ?");
-    params.push(f.bairro);
+    const variantes = variantesDoBairro(db, f.bairro);
+    if (variantes.length === 0) {
+      partes.push("0");
+    } else {
+      partes.push(`e.bairro IN (${variantes.map(() => "?").join(",")})`);
+      params.push(...variantes);
+    }
   }
   if (f.ramo) {
     partes.push("e.cnae LIKE ?");
@@ -93,7 +99,7 @@ const BASE = `
   LEFT JOIN funil f ON f.cnpj = e.cnpj`;
 
 export function listarLeads(db: Banco, f: Filtros, pagina: number, porPagina: number, hoje = new Date()) {
-  const w = onde(f, hoje);
+  const w = onde(db, f, hoje);
   const total = (db.prepare(`SELECT COUNT(*) AS n ${BASE} WHERE ${w.sql}`).get(...w.params) as { n: number }).n;
   const leads = db
     .prepare(
@@ -109,13 +115,30 @@ export function listarLeads(db: Banco, f: Filtros, pagina: number, porPagina: nu
   return { total, leads };
 }
 
-export function bairros(db: Banco): { bairro: string; n: number }[] {
+function bairrosCrus(db: Banco): { bairro: string; n: number }[] {
   return db
-    .prepare(
-      `SELECT bairro, COUNT(*) AS n FROM empresas WHERE situacao = 'ativa' AND bairro <> ''
-       GROUP BY bairro HAVING n >= 3 ORDER BY bairro`,
-    )
+    .prepare(`SELECT bairro, COUNT(*) AS n FROM empresas WHERE situacao = 'ativa' AND bairro <> '' GROUP BY bairro`)
     .all() as unknown as { bairro: string; n: number }[];
+}
+
+/** Bairros agrupados pelas grafias ("Jd do Mar" + "Jardim do Mar"), com 3 ou mais empresas. */
+export function bairros(db: Banco): { chave: string; rotulo: string; n: number }[] {
+  const grupos = new Map<string, number>();
+  for (const { bairro, n } of bairrosCrus(db)) {
+    const chave = normalizarBairro(bairro);
+    grupos.set(chave, (grupos.get(chave) ?? 0) + n);
+  }
+  return [...grupos]
+    .filter(([, n]) => n >= 3)
+    .map(([chave, n]) => ({ chave, rotulo: tituloCaso(chave), n }))
+    .sort((a, b) => a.chave.localeCompare(b.chave));
+}
+
+/** As grafias do cadastro que caem na mesma chave de bairro. */
+function variantesDoBairro(db: Banco, chave: string): string[] {
+  return bairrosCrus(db)
+    .map((b) => b.bairro)
+    .filter((b) => normalizarBairro(b) === chave);
 }
 
 export function contagemFunil(db: Banco): Record<Status, number> {

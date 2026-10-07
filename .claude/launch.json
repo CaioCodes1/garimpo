@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "garimpo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "E:/projetos/garimpo", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

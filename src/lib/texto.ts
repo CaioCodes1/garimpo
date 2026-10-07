@@ -32,6 +32,26 @@ export function normalizarLogradouro(texto: string): string {
   return palavras.join(" ");
 }
 
+const ABREVIACOES_BAIRRO: Record<string, string> = {
+  jd: "jardim", jdm: "jardim", vl: "vila", pq: "parque", pque: "parque", pqe: "parque",
+  res: "residencial", conj: "conjunto", chac: "chacara", sto: "santo", sta: "santa", nsa: "nossa",
+};
+
+/** "Jd. do Mar", "JD DO MAR" e "Bairro Jardim do Mar" → "jardim do mar". Junta as grafias do cadastro. */
+export function normalizarBairro(bairro: string): string {
+  const palavras = normalizar(bairro)
+    .split(" ")
+    .filter(Boolean)
+    .map((p) => ABREVIACOES_BAIRRO[p] ?? p);
+  if (palavras[0] === "bairro" && palavras.length > 1) palavras.shift();
+  return palavras.join(" ");
+}
+
+/** Bairro para exibir: abreviações expandidas, em título. */
+export function bairroExibicao(bairro: string): string {
+  return tituloCaso(normalizarBairro(bairro));
+}
+
 const MINUSCULAS = new Set(["de", "da", "do", "das", "dos", "e", "em", "a", "o"]);
 
 /** "PADARIA DOCE PAO DE MEL" → "Padaria Doce Pao de Mel". */

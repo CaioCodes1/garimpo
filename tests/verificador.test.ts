@@ -107,4 +107,25 @@ describe("verificarPendentes (com banco)", () => {
     expect((await verificarPendentes(db, opcoes)).fora_do_ar).toBe(1);
     expect(db.prepare("SELECT cnpj, estado, falhas FROM verificacoes").all()).toEqual([{ cnpj: "1", estado: "fora_do_ar", falhas: 2 }]);
   });
+
+  it("testa cada domínio uma vez só, mesmo com várias empresas usando o mesmo", async () => {
+    const db = abrirBanco(":memory:");
+    db.prepare("INSERT INTO importacoes (municipio_codigo, municipio_nome, uf, mes_referencia, iniciada_em) VALUES ('1','X','SP','m','t')").run();
+    const inserir = db.prepare(
+      `INSERT INTO empresas (cnpj, cnpj_basico, matriz, razao_social, nome_fantasia, natureza, porte, cnae, logradouro, numero,
+        complemento, bairro, cep, uf, municipio_codigo, municipio_nome, telefone1, telefone2, email, situacao, importacao_id, atualizado_em)
+       VALUES (?, '1', 1, 'R', '', '2062', 'me', '9602501', '', '', '', '', '', 'SP', '1', 'X', '', '', ?, 'ativa', 1, 't')`,
+    );
+    for (const cnpj of ["1", "2", "3"]) inserir.run(cnpj, `loja${cnpj}@rede.com.br`);
+    let consultasDns = 0;
+    const s: Sonda = {
+      dns: async (host) => {
+        consultasDns++;
+        return host === "rede.com.br" ? "tem_ip" : "sem_ip";
+      },
+      http: async () => 200,
+    };
+    expect((await verificarPendentes(db, { provedores, limiteContador: 5, sonda: s })).ok).toBe(3);
+    expect(consultasDns).toBe(2); // rede.com.br e www.rede.com.br, uma vez cada
+  });
 });

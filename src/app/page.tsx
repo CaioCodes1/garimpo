@@ -55,7 +55,13 @@ export default async function Pagina({ searchParams }: { searchParams: Promise<P
             garimpo<span className="text-ouro">.</span>
           </h1>
           <p className="text-suave">
-            {base.municipios.map(tituloCaso).join(", ")} · base da Receita de {base.ultimaImportacao ?? "?"}
+            {base.municipios
+              .map((m) => {
+                const [nome = "", uf = ""] = m.split("/");
+                return `${tituloCaso(nome)}/${uf}`;
+              })
+              .join(", ")}{" "}
+            · base da Receita de {base.ultimaImportacao ?? "?"}
           </p>
         </div>
         <ul className="flex flex-wrap gap-2 text-sm">
@@ -87,8 +93,8 @@ export default async function Pagina({ searchParams }: { searchParams: Promise<P
           <select name="bairro" defaultValue={filtros.bairro ?? ""}>
             <option value="">Todos</option>
             {bairros(db).map((b) => (
-              <option key={b.bairro} value={b.bairro}>
-                {tituloCaso(b.bairro)} ({b.n})
+              <option key={b.chave} value={b.chave}>
+                {b.rotulo} ({b.n})
               </option>
             ))}
           </select>
@@ -242,7 +248,7 @@ function CartaoLead({ c }: { c: Cartao }) {
 
       <form action={acaoSalvarAnotacoes} className="mt-3 flex gap-2 text-sm">
         <input type="hidden" name="cnpj" value={c.cnpj} />
-        <input name="anotacoes" defaultValue={c.anotacoes} placeholder="Anotações (ex.: falou com a dona, retornar dia 15)" className="flex-1" aria-label="Anotações" />
+        <input key={c.anotacoes} name="anotacoes" defaultValue={c.anotacoes} placeholder="Anotações (ex.: falou com a dona, retornar dia 15)" className="flex-1" aria-label="Anotações" />
         <button className="rounded-lg border border-borda px-3">Salvar</button>
       </form>
       {c.contatadoEm && <p className="mt-2 text-xs text-suave">Primeiro contato em {new Date(c.contatadoEm).toLocaleDateString("pt-BR")}</p>}

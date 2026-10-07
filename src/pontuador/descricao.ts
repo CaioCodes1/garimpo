@@ -1,5 +1,5 @@
 import { acharRamo, type Ramo } from "../config";
-import { limparRazaoSocial, tituloCaso } from "../lib/texto";
+import { bairroExibicao, limparRazaoSocial, tituloCaso } from "../lib/texto";
 import { mesesDesde, textoTempoAberta } from "./nota";
 
 const PORTES: Record<string, string> = { mei: "MEI", me: "microempresa", epp: "pequeno porte" };
@@ -13,7 +13,7 @@ export function nomeExibicao(nomeFantasia: string, razaoSocial: string): string 
 /** "Salão de beleza · microempresa · Rudge Ramos" */
 export function descricaoBreve(cnae: string, porte: string, bairro: string, ramos: Ramo[]): string {
   const partes = [acharRamo(cnae, ramos)?.rotulo ?? `CNAE ${cnae}`, PORTES[porte] ?? porte];
-  if (bairro.trim()) partes.push(tituloCaso(bairro));
+  if (bairro.trim()) partes.push(bairroExibicao(bairro));
   return partes.join(" · ");
 }
 
