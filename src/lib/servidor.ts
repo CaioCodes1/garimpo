@@ -4,7 +4,7 @@ import type { Lead } from "../consultas/painel";
 import { abrirBanco, type Banco } from "../db/banco";
 import { gerarMensagem, linkPesquisaGoogle, linkWhatsApp } from "../mensagens/mensagens";
 import { descricaoBreve, linhaTempoAberta, nomeExibicao } from "../pontuador/descricao";
-import { calcularNota, mesesDesde, textoTempoAberta, type EstadoVerificacao, type Motivo } from "../pontuador/nota";
+import { calcularNota, celularNormalizado, mesesDesde, textoTempoAberta, type EstadoVerificacao, type Motivo } from "../pontuador/nota";
 
 let banco: Banco | undefined;
 
@@ -14,7 +14,8 @@ export function obterBanco(): Banco {
   return banco;
 }
 
-export function formatarTelefone(t: string): string {
+export function formatarTelefone(bruto: string): string {
+  const t = celularNormalizado(bruto) ?? bruto;
   if (t.length === 11) return `(${t.slice(0, 2)}) ${t.slice(2, 7)}-${t.slice(7)}`;
   if (t.length === 10) return `(${t.slice(0, 2)}) ${t.slice(2, 6)}-${t.slice(6)}`;
   return t;
@@ -61,8 +62,10 @@ export function montarCartoes(leads: Lead[], hoje = new Date()): { cartoes: Cart
       },
       ctx,
     );
+    // MEI sem nome fantasia tem o nome da pessoa como razão social: a mensagem fala "seu negócio".
+    const temNomeFantasia = /\p{L}/u.test(l.nome_fantasia);
     const mensagem = gerarMensagem(modelos, l.modelo as NomeModelo, {
-      nome,
+      nome: temNomeFantasia ? nome : "seu negócio",
       ramoRotulo: acharRamo(l.cnae, ramos)?.rotulo ?? "negócios como o seu",
       bairro: l.bairro,
       municipio: l.municipio_nome,

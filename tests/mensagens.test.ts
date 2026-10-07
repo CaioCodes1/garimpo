@@ -28,8 +28,8 @@ describe.each(nomes)("modelo %s", (modelo) => {
     expect(texto).not.toMatch(/R\$/);
   });
   it("não sobra variável sem preencher", () => expect(texto).not.toMatch(/\{\w+\}/));
-  it("cita a empresa e o portfólio", () => {
-    expect(texto).toContain("Studio Bella");
+  it("cita a empresa (pelo nome ou pelo site) e o portfólio", () => {
+    expect(texto).toMatch(/Studio Bella|studiobella\.com\.br/);
     expect(texto).toContain("https://exemplo.com");
   });
 });
@@ -46,6 +46,14 @@ describe("conteúdo específico", () => {
     expect(gerarMensagem(modelos, "site-com-problema", { ...dados, estadoVerificacao: "sem_https" }, perfil)).toContain(
       '"não seguro"',
     );
+  });
+});
+
+describe("MEI sem nome fantasia", () => {
+  it('lê bem com "seu negócio" no lugar do nome', () => {
+    const d = { ...dados, nome: "seu negócio" };
+    expect(gerarMensagem(modelos, "empresa-nova", d, perfil)).toContain("Vi que seu negócio abriu há 4 meses");
+    expect(gerarMensagem(modelos, "sem-site", d, perfil)).toContain("Se seu negócio ainda não tem site");
   });
 });
 

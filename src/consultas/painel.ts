@@ -102,7 +102,7 @@ export function listarLeads(db: Banco, f: Filtros, pagina: number, porPagina: nu
               e.email, e.email_repeticoes, e.site_osm, p.nota, p.motivos, p.modelo, v.alvo, v.estado,
               COALESCE(f.status, 'novo') AS status, COALESCE(f.anotacoes, '') AS anotacoes, f.contatado_em
        ${BASE} WHERE ${w.sql}
-       ORDER BY p.nota DESC, e.data_abertura DESC, e.cnpj
+       ORDER BY p.nota DESC, (e.nome_fantasia GLOB '*[A-Za-z]*') DESC, e.data_abertura DESC, e.cnpj
        LIMIT ? OFFSET ?`,
     )
     .all(...w.params, porPagina, (pagina - 1) * porPagina) as unknown as Lead[];

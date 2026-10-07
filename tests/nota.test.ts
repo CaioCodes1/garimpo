@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Ramo } from "@/config";
 import { descricaoBreve, linhaTempoAberta, nomeExibicao } from "@/pontuador/descricao";
-import { calcularNota, ehCelular, mesesDesde, textoTempoAberta, type EntradaNota } from "@/pontuador/nota";
+import { calcularNota, celularNormalizado, ehCelular, mesesDesde, textoTempoAberta, type EntradaNota } from "@/pontuador/nota";
 
 const RAMOS: Ramo[] = [
   { prefixo: "9602501", rotulo: "Salão de beleza", peso: 20 },
@@ -128,5 +128,15 @@ describe("tempo e descrição", () => {
     expect(ehCelular("11987654321")).toBe(true);
     expect(ehCelular("1143210000")).toBe(false);
     expect(ehCelular("")).toBe(false);
+  });
+  it("devolve o 9 que a Receita corta do celular (número guardado com 8 dígitos)", () => {
+    expect(celularNormalizado("1166602592")).toBe("11966602592");
+    expect(celularNormalizado("1198765432")).toBe("11998765432");
+    expect(celularNormalizado("11987654321")).toBe("11987654321");
+    expect(celularNormalizado("1152916729")).toBeNull();
+    expect(celularNormalizado("1121234567")).toBeNull();
+  });
+  it("celular de 8 dígitos da Receita vira WhatsApp com o 9", () => {
+    expect(calcularNota({ ...base, telefone1: "1166602592" }, ctx).celular).toBe("11966602592");
   });
 });

@@ -35,10 +35,20 @@ export interface ResultadoNota {
   celular: string | null;
 }
 
-/** Celular = 9 dígitos depois do DDD, começando com 9. */
+/**
+ * Celular no formato atual (DDD + 9 dígitos), ou null se o número é fixo.
+ * A Receita guarda no máximo 8 dígitos no número, então o 9 do celular (obrigatório desde 2016)
+ * fica de fora: "11" + "66602592". Número de 8 dígitos começando com 6, 7, 8 ou 9 é celular
+ * (fixo começa com 2, 3, 4 ou 5), e basta pôr o 9 na frente.
+ */
+export function celularNormalizado(telefone: string): string | null {
+  if (telefone.length === 11 && telefone[2] === "9") return telefone;
+  if (telefone.length === 10 && "6789".includes(telefone[2]!)) return `${telefone.slice(0, 2)}9${telefone.slice(2)}`;
+  return null;
+}
+
 export function ehCelular(telefone: string): boolean {
-  const numero = telefone.slice(2);
-  return telefone.length === 11 && numero.length === 9 && numero.startsWith("9");
+  return celularNormalizado(telefone) !== null;
 }
 
 export function mesesDesde(dataIso: string, hoje: Date): number {
@@ -104,7 +114,8 @@ export function calcularNota(e: EntradaNota, ctx: ContextoNota): ResultadoNota {
     { numero: e.telefone1, proprio: proprio(e.telefone1, e.telefone1Repeticoes) },
     { numero: e.telefone2, proprio: proprio(e.telefone2, e.telefone2Repeticoes) },
   ];
-  const celular = telefones.find((t) => t.proprio && ehCelular(t.numero))?.numero ?? null;
+  const proprioCelular = telefones.find((t) => t.proprio && ehCelular(t.numero));
+  const celular = proprioCelular ? celularNormalizado(proprioCelular.numero) : null;
   const temFixoProprio = telefones.some((t) => t.proprio && !ehCelular(t.numero));
   const temContador = telefones.some((t) => t.numero && !t.proprio) || (e.email !== "" && !emailProprio);
   if (celular) motivos.push({ tipo: "contato", texto: "dá para chamar no WhatsApp", pontos: 10 });
