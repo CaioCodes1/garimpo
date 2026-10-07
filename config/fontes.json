@@ -1,0 +1,8 @@
+{
+  "receita": {
+    "webdav": "https://arquivos.receitafederal.gov.br/public.php/dav/files/YggdBLfdninEJX9",
+    "observacao": "Compartilhamento público (Nextcloud) da Receita desde jan/2026. Se mudar de novo, troque só este endereço."
+  },
+  "overpass": "https://overpass-api.de/api/interpreter",
+  "userAgent": "garimpo/0.1 (ferramenta local de prospeccao; github.com/CaioCodes1/garimpo)"
+}

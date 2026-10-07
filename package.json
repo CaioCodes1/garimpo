@@ -1,0 +1,47 @@
+{
+  "name": "garimpo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Caçador de leads local para freelancers de site: acha pequenas empresas da sua cidade que provavelmente não têm site, a partir dos dados abertos de CNPJ.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "importar": "tsx src/cli/importar.ts",
+    "enriquecer": "tsx src/cli/enriquecer.ts",
+    "verificar": "tsx src/cli/verificar.ts",
+    "pontuar": "tsx src/cli/pontuar.ts",
+    "tudo": "tsx src/cli/tudo.ts",
+    "teste-real": "tsx scripts/teste-real.ts",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "server-only": "^0.0.1",
+    "yauzl": "^3.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.19.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3",
+    "yazl": "^3.3.1"
+  }
+}

@@ -1,0 +1,202 @@
+import { promises as dns } from "node:dns";
+import { emTransacao, type Banco } from "../db/banco";
+import { dominioDoEmail, type EstadoVerificacao } from "../pontuador/nota";
+
+/** O que uma verificação isolada concluiu, antes de olhar o histórico. */
+export type Resultado = "ok" | "sem_https" | "sem_site" | "falha";
+
+export type RespostaDns = "tem_ip" | "sem_ip" | "erro";
+
+/** Tudo que toca a rede passa por aqui, para os testes poderem simular. */
+export interface Sonda {
+  dns(host: string): Promise<RespostaDns>;
+  /** Status HTTP, ou null se não houve resposta (recusa, TLS, tempo esgotado). */
+  http(url: string, seguirRedirecionamento: boolean): Promise<number | null>;
+}
+
+export interface Alvo {
+  host: string;
+  /** Domínio de e-mail sem endereço web = "tem domínio, sem site". Site do OSM sem endereço = falha. */
+  origem: "email" | "osm";
+}
+
+export function alvoDaEmpresa(
+  siteOsm: string | null,
+  email: string,
+  emailProprio: boolean,
+  provedores: Set<string>,
+): Alvo | null {
+  if (siteOsm) {
+    try {
+      const url = new URL(/^https?:\/\//i.test(siteOsm) ? siteOsm : `https://${siteOsm}`);
+      return { host: url.hostname.toLowerCase(), origem: "osm" };
+    } catch {
+      return null;
+    }
+  }
+  const dominio = dominioDoEmail(email);
+  if (!dominio || !emailProprio || provedores.has(dominio) || !dominio.includes(".")) return null;
+  return { host: dominio, origem: "email" };
+}
+
+export async function verificarAlvo(alvo: Alvo, sonda: Sonda): Promise<Resultado | "erro_dns"> {
+  const outro = alvo.host.startsWith("www.") ? alvo.host.slice(4) : `www.${alvo.host}`;
+  const respostas = await Promise.all([sonda.dns(alvo.host), sonda.dns(outro)]);
+  const hosts = [alvo.host, outro].filter((_, i) => respostas[i] === "tem_ip");
+  if (hosts.length === 0) {
+    if (respostas.includes("erro")) return "erro_dns";
+    return alvo.origem === "email" ? "sem_site" : "falha";
+  }
+  for (const host of hosts) {
+    const https = await sonda.http(`https://${host}/`, true);
+    // 4xx ainda é um servidor respondendo (proteção anti-robô, página raiz faltando): não dá para
+    // afirmar que há problema, e afirmar problema sem certeza é o pior erro possível aqui.
+    if (https !== null && https < 500) return "ok";
+  }
+  for (const host of hosts) {
+    const http = await sonda.http(`http://${host}/`, false);
+    if (http !== null && http < 500) return "sem_https";
+  }
+  return "falha";
+}
+
+export interface Historico {
+  falhas: number;
+  primeiraFalhaEm: string | null;
+}
+
+const UMA_HORA = 60 * 60 * 1000;
+
+/**
+ * "fora_do_ar" só depois de duas falhas com pelo menos uma hora entre a primeira e a atual.
+ * Qualquer sucesso zera o histórico.
+ */
+export function proximoEstado(
+  resultado: Resultado | "erro_dns",
+  anterior: Historico | null,
+  agora: Date,
+): { estado: EstadoVerificacao } & Historico {
+  if (resultado === "erro_dns") {
+    return { estado: "inconclusivo", falhas: anterior?.falhas ?? 0, primeiraFalhaEm: anterior?.primeiraFalhaEm ?? null };
+  }
+  if (resultado !== "falha") return { estado: resultado, falhas: 0, primeiraFalhaEm: null };
+  const falhas = (anterior?.falhas ?? 0) + 1;
+  const primeiraFalhaEm = anterior?.primeiraFalhaEm ?? agora.toISOString();
+  const confirmado = falhas >= 2 && agora.getTime() - new Date(primeiraFalhaEm).getTime() >= UMA_HORA;
+  return { estado: confirmado ? "fora_do_ar" : "inconclusivo", falhas, primeiraFalhaEm };
+}
+
+export function sondaReal(userAgent: string, tempoLimiteMs = 8_000): Sonda {
+  return {
+    async dns(host) {
+      const tentar = async (fn: (h: string) => Promise<string[]>) => {
+        try {
+          return (await fn(host)).length > 0 ? "tem_ip" : "sem_ip";
+        } catch (erro) {
+          const codigo = (erro as NodeJS.ErrnoException).code;
+          return codigo === "ENOTFOUND" || codigo === "ENODATA" ? "sem_ip" : "erro";
+        }
+      };
+      const [v4, v6] = await Promise.all([tentar(dns.resolve4), tentar(dns.resolve6)]);
+      if (v4 === "tem_ip" || v6 === "tem_ip") return "tem_ip";
+      return v4 === "erro" && v6 === "erro" ? "erro" : "sem_ip";
+    },
+    async http(url, seguir) {
+      try {
+        const resposta = await fetch(url, {
+          redirect: seguir ? "follow" : "manual",
+          headers: { "User-Agent": userAgent },
+          signal: AbortSignal.timeout(tempoLimiteMs),
+        });
+        await resposta.body?.cancel();
+        return resposta.status;
+      } catch {
+        return null;
+      }
+    },
+  };
+}
+
+/** Antes de acusar sites alheios, confere se a internet daqui está funcionando. */
+export async function internetFunciona(): Promise<boolean> {
+  try {
+    const r = await fetch("https://www.google.com/generate_204", { signal: AbortSignal.timeout(8_000) });
+    return r.status === 204;
+  } catch {
+    return false;
+  }
+}
+
+interface Pendente {
+  cnpj: string;
+  site_osm: string | null;
+  email: string;
+  email_repeticoes: number;
+  alvo_anterior: string | null;
+  falhas: number | null;
+  primeira_falha_em: string | null;
+}
+
+export interface OpcoesVerificacao {
+  provedores: Set<string>;
+  limiteContador: number;
+  sonda: Sonda;
+  agora?: () => Date;
+  simultaneas?: number;
+  /** Refaz verificações conclusivas mais velhas que isto. */
+  validadeDias?: number;
+  log?: (m: string) => void;
+}
+
+export async function verificarPendentes(db: Banco, o: OpcoesVerificacao): Promise<Record<EstadoVerificacao, number>> {
+  const agora = o.agora ?? (() => new Date());
+  const validade = new Date(agora().getTime() - (o.validadeDias ?? 30) * 86_400_000).toISOString();
+  const pendentes = db
+    .prepare(
+      `SELECT e.cnpj, e.site_osm, e.email, e.email_repeticoes,
+              v.alvo AS alvo_anterior, v.falhas, v.primeira_falha_em
+       FROM empresas e LEFT JOIN verificacoes v ON v.cnpj = e.cnpj
+       WHERE e.situacao = 'ativa'
+         AND (e.site_osm IS NOT NULL OR e.email <> '')
+         AND (v.cnpj IS NULL OR v.estado = 'inconclusivo' OR v.verificado_em < ?)`,
+    )
+    .all(validade) as unknown as Pendente[];
+
+  const tarefas = pendentes
+    .map((p) => ({
+      p,
+      alvo: alvoDaEmpresa(p.site_osm, p.email, p.email_repeticoes < o.limiteContador, o.provedores),
+    }))
+    .filter((t): t is { p: Pendente; alvo: Alvo } => t.alvo !== null);
+  o.log?.(`${tarefas.length} domínios para verificar.`);
+
+  const contagem: Record<EstadoVerificacao, number> = { ok: 0, sem_https: 0, sem_site: 0, fora_do_ar: 0, inconclusivo: 0 };
+  const resultados: ({ cnpj: string; alvo: string; estado: EstadoVerificacao } & Historico)[] = [];
+  let proxima = 0;
+  const trabalhador = async () => {
+    while (proxima < tarefas.length) {
+      const { p, alvo } = tarefas[proxima++]!;
+      const resultado = await verificarAlvo(alvo, o.sonda);
+      // Alvo novo (site mudou no OSM, e-mail mudou) não herda falhas do alvo antigo.
+      const anterior = p.alvo_anterior === alvo.host && p.falhas !== null
+        ? { falhas: p.falhas, primeiraFalhaEm: p.primeira_falha_em }
+        : null;
+      const proximo = proximoEstado(resultado, anterior, agora());
+      contagem[proximo.estado]++;
+      resultados.push({ cnpj: p.cnpj, alvo: alvo.host, ...proximo });
+      if (resultados.length % 100 === 0) o.log?.(`  ${resultados.length}/${tarefas.length}`);
+    }
+  };
+  await Promise.all(Array.from({ length: o.simultaneas ?? 5 }, trabalhador));
+
+  const gravar = db.prepare(
+    `INSERT INTO verificacoes (cnpj, alvo, estado, falhas, primeira_falha_em, verificado_em) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (cnpj) DO UPDATE SET alvo = excluded.alvo, estado = excluded.estado, falhas = excluded.falhas,
+       primeira_falha_em = excluded.primeira_falha_em, verificado_em = excluded.verificado_em`,
+  );
+  const quando = agora().toISOString();
+  emTransacao(db, () => {
+    for (const r of resultados) gravar.run(r.cnpj, r.alvo, r.estado, r.falhas, r.primeiraFalhaEm, quando);
+  });
+  return contagem;
+}

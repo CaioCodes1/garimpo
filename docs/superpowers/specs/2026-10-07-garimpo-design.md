@@ -1,6 +1,6 @@
 # garimpo — design
 
-> Data: 07/10/2026 · Autor: Caio Martins · Estado: aguardando revisão
+> Data: 07/10/2026 · Autor: Caio Martins · Estado: implementado (v1)
 
 ## 1. O que é
 
@@ -112,8 +112,11 @@ Exemplo de entrada:
 ### Fontes
 
 O endereço base dos arquivos fica em `config/fontes.json`. A Receita mudou o
-layout em janeiro de 2026. **O primeiro passo da implementação é confirmar o
-endereço atual** e registrá-lo nesse arquivo.
+layout em janeiro de 2026: desde então é um compartilhamento público do
+Nextcloud, lido por WebDAV (`PROPFIND`) em
+`https://arquivos.receitafederal.gov.br/public.php/dav/files/YggdBLfdninEJX9/<AAAA-MM>/`.
+Confirmado em 07/10/2026 (mês mais recente: 2026-09; os arquivos usados somam
+6,6 GB). O servidor aceita `Range`.
 
 Arquivos usados (todos `;`, entre aspas, codificação **latin1**):
 
@@ -122,7 +125,7 @@ Arquivos usados (todos `;`, entre aspas, codificação **latin1**):
 | `Estabelecimentos` | 10 | CNPJ básico/ordem/DV, matriz/filial, nome fantasia, situação, data de início, CNAE principal, endereço, bairro, CEP, UF, município, DDD+telefone 1 e 2, e-mail |
 | `Empresas` | 10 | CNPJ básico, razão social, natureza jurídica, porte |
 | `Simples` | 1 | CNPJ básico, opção MEI |
-| `Municipios`, `Cnaes` | 1 cada | código → descrição |
+| `Municipios` | 1 | código → nome (sem UF; a UF desempata na leitura dos estabelecimentos) |
 
 ### Fluxo
 
@@ -148,10 +151,12 @@ Arquivos usados (todos `;`, entre aspas, codificação **latin1**):
 
 ## 6. Enriquecedor (OpenStreetMap)
 
-- Uma consulta Overpass pela área administrativa do município (`admin_level=8`)
-  trazendo comércios e serviços com nome. Respeita a política de uso do
-  servidor público: uma consulta por execução, `User-Agent` identificado e nova
-  tentativa com espera crescente.
+- Duas consultas Overpass por município: a primeira lista as relações
+  `admin_level=8` da UF (só etiquetas) para achar o município comparando nomes
+  sem acento, porque a Receita grava "SAO BERNARDO DO CAMPO"; a segunda traz os
+  lugares com `name` e `addr:street` da área. Respeita a política de uso do
+  servidor público: `User-Agent` identificado e nova tentativa com espera
+  crescente (10 s, 30 s, 60 s) em 429/5xx.
 - **Cruzamento:** nome normalizado (sem acento, minúsculo, sem `ltda`, `me`,
   `eireli`, `epp`) igual ao nome fantasia **e** logradouro normalizado igual.
   Sem as duas coincidências, não cruza: é melhor não enriquecer do que
@@ -170,7 +175,7 @@ Resultados possíveis:
 
 | Estado | Como se chega | Leitura |
 |---|---|---|
-| `ok` | HTTPS responde com 2xx/3xx | Tem site funcionando |
+| `ok` | HTTPS responde com status < 500 (4xx incluído: proteção anti-robô ou raiz faltando ainda é servidor no ar) | Tem site funcionando |
 | `sem_https` | Só HTTP responde | Site com problema |
 | `sem_site` | O domínio existe, mas não tem registro A/AAAA (só e-mail) | Tem domínio, não tem site |
 | `fora_do_ar` | Sem resposta ou erro do servidor **em duas verificações com pelo menos 1 hora de intervalo** | Site com problema |
@@ -178,14 +183,17 @@ Resultados possíveis:
 
 Regra dura: **nenhuma mensagem diz que o site está com problema** se o estado
 não for `sem_https` ou `fora_do_ar` confirmado. Tempo limite de 8 s por
-requisição e no máximo 5 verificações simultâneas.
+requisição e no máximo 5 verificações simultâneas. Erro do próprio DNS não
+conta como falha, e o passo inteiro aborta se a internet local não responde
+(`generate_204`). Site do OSM cujo domínio não tem endereço conta como falha
+(e não como `sem_site`): estava no ar e caiu.
 
 ## 8. Pontuador
 
 ### Detecção de contador
 
-Um e-mail ou telefone que aparece em **5 ou mais** estabelecimentos do
-município (limite em `config/ramos.json → limiteContador`) é considerado do
+Um e-mail ou telefone que aparece em **5 ou mais** estabelecimentos ativos do
+município, **de qualquer ramo** (a contagem é feita antes do filtro de ramo), (limite em `config/ramos.json → limiteContador`) é considerado do
 contador. Ele não serve como pista de site nem como contato. A ficha mostra
 "contato provavelmente do contador".
 
@@ -275,13 +283,14 @@ garimpo/
     modelos/ empresa-nova.md  sem-site.md  site-com-problema.md
   src/
     importador/  enriquecedor/  verificador/  pontuador/  mensagens/  db/
-  app/            painel Next.js
+  src/app/        painel Next.js
   tests/
     fixtures/     zips pequenos no formato da Receita
   docs/
 ```
 
-Pasta de dados: variável `GARIMPO_DADOS`, padrão `./dados` (no `.gitignore`).
+Pasta de dados: variável `GARIMPO_DADOS` (lida do `.env` pelos comandos e pelo
+Next), padrão `./dados` (no `.gitignore`).
 
 ## 13. Testes
 
@@ -293,7 +302,9 @@ Pasta de dados: variável `GARIMPO_DADOS`, padrão `./dados` (no `.gitignore`).
   colunas da Receita) passando pelo importador até o SQLite. Inclui um caso de
   reimportação que confere que `funil` e `nao_contatar` sobrevivem.
 - **Sem rede nos testes:** Receita, Overpass, DNS e HTTP são simulados.
-  `npm run teste-real` faz uma passada real e só roda manualmente.
+  `npm run teste-real` confere as fontes reais (lista a Receita, acha o
+  município no Overpass, verifica `example.com`) sem baixar a base, e só roda
+  manualmente.
 - **CI:** GitHub Actions com lint, tipos e testes.
 
 ## 14. Critério de pronto da versão 1

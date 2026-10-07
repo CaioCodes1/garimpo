@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  --fundo: #f6f3ec;
+  --superficie: #fffdf8;
+  --borda: #e4ddcd;
+  --texto: #2a2620;
+  --texto-suave: #6b6357;
+  --ouro: #a8740f;
+  --ouro-fundo: #f6e8c6;
+  --verde: #2f7a4b;
+  --verde-fundo: #e2f1e6;
+  --alerta: #9a4b14;
+  --alerta-fundo: #f8e6d6;
+  --foco: #a8740f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #171512;
+    --superficie: #201d19;
+    --borda: #36312a;
+    --texto: #ece6da;
+    --texto-suave: #a59c8d;
+    --ouro: #e0aa3e;
+    --ouro-fundo: #3a2f18;
+    --verde: #6cc48c;
+    --verde-fundo: #1c3324;
+    --alerta: #e69a62;
+    --alerta-fundo: #3a2618;
+    --foco: #e0aa3e;
+  }
+}
+
+@theme inline {
+  --color-fundo: var(--fundo);
+  --color-superficie: var(--superficie);
+  --color-borda: var(--borda);
+  --color-texto: var(--texto);
+  --color-suave: var(--texto-suave);
+  --color-ouro: var(--ouro);
+  --color-ouro-fundo: var(--ouro-fundo);
+  --color-verde: var(--verde);
+  --color-verde-fundo: var(--verde-fundo);
+  --color-alerta: var(--alerta);
+  --color-alerta-fundo: var(--alerta-fundo);
+}
+
+body {
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+
+select,
+input,
+textarea {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  color: var(--texto);
+}

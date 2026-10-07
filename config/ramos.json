@@ -1,0 +1,71 @@
+{
+  "limiteContador": 5,
+  "observacao": "Prefixos de CNAE (7 dígitos, sem pontuação) aceitos como 'ramo que atende cliente final'. Vale o prefixo mais longo que casar. Peso 20 = ramo que depende de ser achado online; 10 = os demais. Ramos de trabalhador pejotizado (aplicativo, entrega, promoção de vendas, software, serviços administrativos) ficam de fora de propósito.",
+  "ramos": [
+    { "prefixo": "5611", "rotulo": "Restaurante, lanchonete ou bar", "peso": 20 },
+    { "prefixo": "5620", "rotulo": "Buffet e marmitas", "peso": 20 },
+    { "prefixo": "1091102", "rotulo": "Padaria e confeitaria", "peso": 20 },
+    { "prefixo": "4721", "rotulo": "Padaria, doceria ou mercearia", "peso": 20 },
+    { "prefixo": "4712", "rotulo": "Minimercado ou mercearia", "peso": 10 },
+    { "prefixo": "4722", "rotulo": "Açougue", "peso": 10 },
+    { "prefixo": "4723", "rotulo": "Loja de bebidas", "peso": 10 },
+    { "prefixo": "4724", "rotulo": "Hortifrúti", "peso": 10 },
+    { "prefixo": "4729", "rotulo": "Empório e produtos alimentícios", "peso": 10 },
+
+    { "prefixo": "9602501", "rotulo": "Salão de beleza", "peso": 20 },
+    { "prefixo": "9602502", "rotulo": "Estética e beleza", "peso": 20 },
+    { "prefixo": "9609206", "rotulo": "Estúdio de tatuagem e piercing", "peso": 20 },
+
+    { "prefixo": "8630", "rotulo": "Clínica ou consultório médico", "peso": 20 },
+    { "prefixo": "8630504", "rotulo": "Consultório odontológico", "peso": 20 },
+    { "prefixo": "8650", "rotulo": "Fisioterapia, psicologia ou nutrição", "peso": 20 },
+    { "prefixo": "8690", "rotulo": "Terapias e cuidados de saúde", "peso": 20 },
+
+    { "prefixo": "7500100", "rotulo": "Clínica veterinária", "peso": 20 },
+    { "prefixo": "4789004", "rotulo": "Pet shop", "peso": 20 },
+    { "prefixo": "9609208", "rotulo": "Banho e tosa", "peso": 20 },
+
+    { "prefixo": "9313", "rotulo": "Academia", "peso": 20 },
+    { "prefixo": "8593", "rotulo": "Escola de idiomas", "peso": 20 },
+    { "prefixo": "8592", "rotulo": "Escola de música, dança ou artes", "peso": 20 },
+    { "prefixo": "8511", "rotulo": "Creche", "peso": 20 },
+    { "prefixo": "8512", "rotulo": "Escola infantil", "peso": 20 },
+    { "prefixo": "8599", "rotulo": "Cursos e aulas", "peso": 10 },
+    { "prefixo": "8599601", "rotulo": "Autoescola", "peso": 10 },
+    { "prefixo": "5510", "rotulo": "Hotel ou pousada", "peso": 20 },
+
+    { "prefixo": "4781", "rotulo": "Loja de roupas", "peso": 10 },
+    { "prefixo": "4782", "rotulo": "Loja de calçados", "peso": 10 },
+    { "prefixo": "4783", "rotulo": "Joalheria e relojoaria", "peso": 10 },
+    { "prefixo": "4774", "rotulo": "Ótica", "peso": 10 },
+    { "prefixo": "4772", "rotulo": "Perfumaria e cosméticos", "peso": 10 },
+    { "prefixo": "4789001", "rotulo": "Presentes, bijuterias e artesanato", "peso": 10 },
+    { "prefixo": "4789002", "rotulo": "Floricultura", "peso": 10 },
+    { "prefixo": "4761003", "rotulo": "Papelaria", "peso": 10 },
+    { "prefixo": "4763", "rotulo": "Brinquedos, esportes e lazer", "peso": 10 },
+    { "prefixo": "4751", "rotulo": "Loja de informática", "peso": 10 },
+    { "prefixo": "4744", "rotulo": "Materiais de construção", "peso": 10 },
+    { "prefixo": "4754", "rotulo": "Loja de móveis", "peso": 10 },
+    { "prefixo": "4755", "rotulo": "Tecidos e armarinho", "peso": 10 },
+    { "prefixo": "4771", "rotulo": "Farmácia", "peso": 10 },
+
+    { "prefixo": "4520", "rotulo": "Oficina mecânica ou funilaria", "peso": 10 },
+    { "prefixo": "4530703", "rotulo": "Autopeças", "peso": 10 },
+    { "prefixo": "9511", "rotulo": "Conserto de computadores", "peso": 10 },
+    { "prefixo": "9512", "rotulo": "Conserto de celulares", "peso": 10 },
+    { "prefixo": "9521", "rotulo": "Conserto de eletrodomésticos", "peso": 10 },
+    { "prefixo": "9529", "rotulo": "Chaveiro, sapateiro e pequenos reparos", "peso": 10 },
+    { "prefixo": "9601", "rotulo": "Lavanderia", "peso": 10 },
+
+    { "prefixo": "4321", "rotulo": "Instalações elétricas", "peso": 10 },
+    { "prefixo": "4322", "rotulo": "Instalações hidráulicas", "peso": 10 },
+    { "prefixo": "4330", "rotulo": "Reformas e acabamento", "peso": 10 },
+    { "prefixo": "4399", "rotulo": "Serviços de construção", "peso": 10 },
+
+    { "prefixo": "7420", "rotulo": "Estúdio de fotografia", "peso": 10 },
+    { "prefixo": "8230", "rotulo": "Festas e eventos", "peso": 10 },
+    { "prefixo": "6911701", "rotulo": "Escritório de advocacia", "peso": 10 },
+    { "prefixo": "6920601", "rotulo": "Escritório de contabilidade", "peso": 10 },
+    { "prefixo": "6821", "rotulo": "Imobiliária ou corretor de imóveis", "peso": 10 }
+  ]
+}
