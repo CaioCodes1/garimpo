@@ -1,5 +1,5 @@
 import { acharRamo, type Ramo } from "../config";
-import { bairroExibicao, limparRazaoSocial, tituloCaso } from "../lib/texto";
+import { bairroExibicao, limparRazaoSocial, removerSufixoJuridico, tituloCaso } from "../lib/texto";
 import { mesesDesde, textoTempoAberta } from "./nota";
 
 const PORTES: Record<string, string> = { mei: "MEI", me: "microempresa", epp: "pequeno porte" };
@@ -7,7 +7,7 @@ const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "o
 
 /** Nome fantasia; se vazio (ou só asteriscos, que a Receita usa), a razão social limpa. */
 export function nomeExibicao(nomeFantasia: string, razaoSocial: string): string {
-  return /\p{L}/u.test(nomeFantasia) ? tituloCaso(nomeFantasia) : limparRazaoSocial(razaoSocial);
+  return /\p{L}/u.test(nomeFantasia) ? tituloCaso(removerSufixoJuridico(nomeFantasia)) : limparRazaoSocial(razaoSocial);
 }
 
 /** "Salão de beleza · microempresa · Rudge Ramos" */

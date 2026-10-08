@@ -139,6 +139,14 @@ describe("tempo e descrição", () => {
     expect(nomeExibicao("", "11.111.111 MARIA DA SILVA")).toBe("Maria da Silva");
     expect(nomeExibicao("********", "PADARIA PAO BOM LTDA")).toBe("Padaria Pao Bom");
   });
+  it("tira o sufixo jurídico do nome fantasia também, mesmo empilhado", () => {
+    expect(nomeExibicao("NATALIA PAULETI HARMONIZACAO LTDA", "X")).toBe("Natalia Pauleti Harmonizacao");
+    expect(nomeExibicao("CANTINA DO JOAO LTDA - ME", "X")).toBe("Cantina do Joao");
+    expect(nomeExibicao("LTDA", "X")).toBe("Ltda");
+  });
+  it("mantém maiúscula depois de ponto", () => {
+    expect(nomeExibicao("D.FERNANDES DA COSTA", "X")).toBe("D.Fernandes da Costa");
+  });
   it("reconhece celular", () => {
     expect(ehCelular("11987654321")).toBe(true);
     expect(ehCelular("1143210000")).toBe(false);

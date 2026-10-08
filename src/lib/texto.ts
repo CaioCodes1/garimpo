@@ -54,14 +54,27 @@ export function bairroExibicao(bairro: string): string {
 
 const MINUSCULAS = new Set(["de", "da", "do", "das", "dos", "e", "em", "a", "o"]);
 
-/** "PADARIA DOCE PAO DE MEL" → "Padaria Doce Pao de Mel". */
+/** "PADARIA DOCE PAO DE MEL" → "Padaria Doce Pao de Mel"; "D.FERNANDES" → "D.Fernandes". */
 export function tituloCaso(texto: string): string {
   return texto
     .toLowerCase()
     .split(/\s+/)
     .filter(Boolean)
     .map((p, i) => (i > 0 && MINUSCULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .map((p) => p.replace(/\.(\p{L})/gu, (_, letra: string) => `.${letra.toUpperCase()}`))
     .join(" ");
+}
+
+const SUFIXO_JURIDICO = /[\s,-]+(LTDA|LIMITADA|ME|EPP|EIRELI|S\/?A|SLU)\.?$/i;
+
+/** Tira "Ltda", "- ME", "EIRELI" etc. do fim, inclusive empilhados ("X LTDA - ME"). */
+export function removerSufixoJuridico(texto: string): string {
+  let atual = texto.trim();
+  for (let anterior = ""; anterior !== atual; ) {
+    anterior = atual;
+    atual = atual.replace(SUFIXO_JURIDICO, "").trim();
+  }
+  return atual || texto.trim();
 }
 
 /**
@@ -71,8 +84,7 @@ export function tituloCaso(texto: string): string {
  */
 export function limparRazaoSocial(razao: string): string {
   const semCnpj = razao.replace(/^[\d.\s/-]+/, "").trim();
-  const semSufixo = semCnpj.replace(/[\s-]+(LTDA|ME|EPP|EIRELI|S\/?A|SLU)\.?$/i, "").trim();
-  return tituloCaso(semSufixo || razao);
+  return tituloCaso(removerSufixoJuridico(semCnpj || razao));
 }
 
 export function primeiraMinuscula(texto: string): string {
