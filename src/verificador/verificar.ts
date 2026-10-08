@@ -2,6 +2,7 @@ import { promises as dns } from "node:dns";
 import { emTransacao, type Banco } from "../db/banco";
 import type { EstadoVerificacao } from "../pontuador/nota";
 import { alvoDaEmpresa, type Alvo } from "./alvo";
+import { EnderecoInterno, getStatus } from "./http-seguro";
 
 export { alvoDaEmpresa, type Alvo } from "./alvo";
 
@@ -15,9 +16,11 @@ export type RespostaDns = "tem_ip" | "sem_ip" | "erro";
  * - "cadeia_incompleta": o servidor não mandou o certificado intermediário. O Node recusa, mas os
  *   navegadores completam a cadeia sozinhos e abrem o site normalmente. Não é problema do cliente.
  * - "tempo_esgotado": não respondeu a tempo. Pode ser lentidão; não prova nada.
+ * - "bloqueado": o domínio aponta para um endereço interno (rede local, loopback). Não acessamos,
+ *   e por isso não sabemos nada sobre o site.
  * - null: recusou, resetou ou o certificado é de fato inválido (nome errado, vencido, autoassinado).
  */
-export type RespostaHttp = number | "cadeia_incompleta" | "tempo_esgotado" | null;
+export type RespostaHttp = number | "cadeia_incompleta" | "tempo_esgotado" | "bloqueado" | null;
 
 /** Tudo que toca a rede passa por aqui, para os testes poderem simular. */
 export interface Sonda {
@@ -35,20 +38,22 @@ export async function verificarAlvo(alvo: Alvo, sonda: Sonda): Promise<Resultado
     if (respostas.includes("erro")) return "incerto";
     return alvo.origem === "email" ? "sem_site" : "falha";
   }
-  let httpsDemorou = false;
+  // Lento ou bloqueado: nenhuma conclusão pode ser tirada a partir daí.
+  let semCerteza = false;
   for (const host of hosts) {
     const https = await sonda.http(`https://${host}/`, true);
     // 4xx ainda é um servidor respondendo (proteção anti-robô, página raiz faltando): não dá para
     // afirmar que há problema, e afirmar problema sem certeza é o pior erro possível aqui.
     if (responde(https) || https === "cadeia_incompleta") return "ok";
-    if (https === "tempo_esgotado") httpsDemorou = true;
+    if (https === "tempo_esgotado" || https === "bloqueado") semCerteza = true;
   }
   for (const host of hosts) {
     const http = await sonda.http(`http://${host}/`, false);
     // HTTP responde, mas o HTTPS só demorou: talvez exista e esteja lento. Não afirma nada.
-    if (responde(http)) return httpsDemorou ? "incerto" : "sem_https";
+    if (responde(http)) return semCerteza ? "incerto" : "sem_https";
+    if (http === "bloqueado") semCerteza = true;
   }
-  return "falha";
+  return semCerteza ? "incerto" : "falha";
 }
 
 export interface Historico {
@@ -95,13 +100,7 @@ export function sondaReal(userAgent: string, tempoLimiteMs = 8_000): Sonda {
     },
     async http(url, seguir) {
       try {
-        const resposta = await fetch(url, {
-          redirect: seguir ? "follow" : "manual",
-          headers: { "User-Agent": userAgent },
-          signal: AbortSignal.timeout(tempoLimiteMs),
-        });
-        await resposta.body?.cancel();
-        return resposta.status;
+        return await getStatus(url, { seguirRedirecionamento: seguir, userAgent, tempoLimiteMs });
       } catch (erro) {
         return classificarErroHttp(erro);
       }
@@ -115,13 +114,15 @@ const ERROS_DE_CADEIA = new Set([
   "UNABLE_TO_GET_ISSUER_CERT",
 ]);
 
-/** Traduz o erro do fetch (o undici põe o código do Node em erro.cause) para a sonda. */
+/** Traduz o erro da requisição para a sonda. O código vem em erro.code (node:https) ou erro.cause. */
 export function classificarErroHttp(erro: unknown): RespostaHttp {
-  const e = erro as { name?: string; cause?: { code?: string; name?: string } };
-  if (e.name === "TimeoutError" || e.cause?.name === "TimeoutError" || e.cause?.code === "UND_ERR_CONNECT_TIMEOUT") {
+  const e = erro as { name?: string; code?: string; cause?: { code?: string; name?: string } };
+  if (e instanceof EnderecoInterno || e.code === "EENDERECOINTERNO") return "bloqueado";
+  if (e.name === "TimeoutError" || e.cause?.name === "TimeoutError" || e.code === "UND_ERR_CONNECT_TIMEOUT") {
     return "tempo_esgotado";
   }
-  if (e.cause?.code && ERROS_DE_CADEIA.has(e.cause.code)) return "cadeia_incompleta";
+  const codigo = e.code ?? e.cause?.code;
+  if (codigo && ERROS_DE_CADEIA.has(codigo)) return "cadeia_incompleta";
   return null;
 }
 

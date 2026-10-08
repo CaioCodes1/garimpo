@@ -137,8 +137,48 @@ novo. Reimportar no mês seguinte atualiza o cadastro **sem mexer no seu funil**
   forte, não uma prova. Por isso o botão "Pesquisar no Google" existe.
 - O cadastro da Receita tem defasagem de cerca de um mês, e parte dos e-mails e telefones é do
   contador.
-- O OpenStreetMap cobre só uma fração das empresas (em São Bernardo, cerca de 2,3 mil lugares
-  com nome). O cruzamento exige nome **e** rua iguais, então prefere não cruzar a cruzar errado.
+- O OpenStreetMap cobre só uma fração das empresas (em São Bernardo, cerca de 4 mil lugares com
+  nome e rua, contra 55 mil empresas elegíveis). O cruzamento exige nome **e** rua iguais, então
+  prefere não cruzar a cruzar errado.
+- **Unidade de franquia** aparece como oportunidade, mas o site é da rede. A Receita não marca
+  franquia; quando aparecer uma, marque **Não contatar**.
+
+## Segurança e privacidade
+
+O garimpo roda no seu computador e guarda dados de terceiros (nome de MEI, telefone, e-mail).
+Por isso:
+
+- **O painel só atende o próprio computador.** `npm run dev` e `npm start` escutam em
+  `127.0.0.1`, e qualquer requisição que não chame o painel por `localhost`, `127.0.0.1` ou
+  `[::1]` recebe 403. Isso impede outro aparelho da rede de abrir o painel e barra o *DNS
+  rebinding* (um site malicioso aberto no navegador tentando ler o painel). O painel não tem
+  login: **não exponha a porta** (túnel, `-H 0.0.0.0`, port forwarding).
+- **O verificador não acessa a sua rede interna.** Os domínios testados vêm de dados públicos;
+  um cadastro pode apontar para `192.168.0.1` ou `127.0.0.1`. Endereços de loopback, rede
+  privada, CGNAT, link-local e metadados de nuvem são recusados na resolução de cada conexão,
+  inclusive em redirecionamentos. O corpo das respostas nunca é lido.
+- **O banco fica fora do Git.** `dados/` e `.env` estão no `.gitignore`. Não publique nem
+  compartilhe o `garimpo.db`: ele tem dados pessoais.
+- **O que sai do seu computador:** a listagem e o download da base da Receita, uma consulta ao
+  OpenStreetMap com o nome da cidade, e um `GET /` nos domínios das empresas. Nada é enviado
+  para servidor do projeto, e não há telemetria. WhatsApp e Google só abrem quando você clica.
+- O painel manda `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff` e
+  `Referrer-Policy: no-referrer`. Toda consulta ao banco usa parâmetros, não concatenação.
+
+Achou uma falha? Veja [SECURITY.md](SECURITY.md).
+
+### Dependências
+
+`npm audit --omit=dev` (o que roda de verdade) está **zerado**, e é o portão do CI.
+
+O `npm audit` completo acusa 5 altas, todas na mesma cadeia **só de desenvolvimento**:
+`eslint-config-next → @next/eslint-plugin-next → fast-glob → micromatch → braces`
+([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), negação de serviço com
+padrões glob aninhados). Não há versão corrigida do `braces` (a 3.0.3 é a última, conferido em
+08/10/2026). A "correção" que o `npm audit fix --force` propõe é **rebaixar o
+`eslint-config-next` de 16 para 14**, o que quebra o lint. Os padrões glob que o ESLint lê são do
+próprio projeto, não de entrada externa, então o risco é aceito. O Dependabot avisa quando sair a
+correção.
 
 ## Desenvolvimento
 

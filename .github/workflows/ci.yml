@@ -22,3 +22,14 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Portão de segurança: dependências que rodam de verdade, alta ou crítica reprova.
+  # As de desenvolvimento estão documentadas no README (seção Dependências).
+  dependencias:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm audit --omit=dev --audit-level=high

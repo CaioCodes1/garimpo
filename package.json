@@ -6,9 +6,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
     "importar": "tsx src/cli/importar.ts",
     "enriquecer": "tsx src/cli/enriquecer.ts",
     "verificar": "tsx src/cli/verificar.ts",
@@ -17,7 +17,8 @@
     "teste-real": "tsx scripts/teste-real.ts",
     "test": "vitest run",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "audit:prod": "npm audit --omit=dev --audit-level=high"
   },
   "engines": {
     "node": ">=24"
