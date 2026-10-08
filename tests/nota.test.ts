@@ -10,7 +10,7 @@ const RAMOS: Ramo[] = [
 const ctx = {
   ramos: RAMOS,
   limiteContador: 5,
-  provedores: new Set(["gmail.com", "hotmail.com"]),
+  provedores: new Set(["gmail.com", "hotmail.com", "outlook.com"]),
   hoje: new Date(2026, 9, 7), // 07/10/2026
 };
 
@@ -23,8 +23,12 @@ const base: EntradaNota = {
   telefone2Repeticoes: 0,
   dataAbertura: "2015-01-01",
   cnae: "4781400",
+  siteOsm: null,
+  alvoVerificado: null,
   estadoVerificacao: null,
 };
+/** Empresa com e-mail de domínio próprio, verificado nesse mesmo domínio. */
+const comDominio = { email: "a@loja.com.br", alvoVerificado: "loja.com.br" };
 
 const pontos = (e: Partial<EntradaNota>, tipo: string) =>
   calcularNota({ ...base, ...e }, ctx).motivos.filter((m) => m.tipo === tipo).reduce((s, m) => s + m.pontos, 0);
@@ -34,14 +38,25 @@ describe("sinal de site (um só, nesta ordem: verificador → e-mail → desconh
     expect(pontos({ email: "loja@gmail.com", emailRepeticoes: 1 }, "site")).toBe(40);
   });
   it("verificador sem_site vale 40", () => {
-    expect(pontos({ email: "a@loja.com.br", estadoVerificacao: "sem_site" }, "site")).toBe(40);
+    expect(pontos({ ...comDominio, estadoVerificacao: "sem_site" }, "site")).toBe(40);
   });
   it("sem_https e fora_do_ar valem 30", () => {
-    expect(pontos({ estadoVerificacao: "sem_https" }, "site")).toBe(30);
-    expect(pontos({ estadoVerificacao: "fora_do_ar" }, "site")).toBe(30);
+    expect(pontos({ ...comDominio, estadoVerificacao: "sem_https" }, "site")).toBe(30);
+    expect(pontos({ ...comDominio, estadoVerificacao: "fora_do_ar" }, "site")).toBe(30);
   });
-  it("site funcionando vale 0, mesmo com e-mail @gmail (o verificador decide)", () => {
-    expect(pontos({ email: "loja@gmail.com", emailRepeticoes: 1, estadoVerificacao: "ok" }, "site")).toBe(0);
+  it("site do OSM funcionando vale 0, mesmo com e-mail @gmail (o verificador decide)", () => {
+    expect(
+      pontos({ email: "loja@gmail.com", emailRepeticoes: 1, siteOsm: "https://loja.com.br", alvoVerificado: "loja.com.br", estadoVerificacao: "ok" }, "site"),
+    ).toBe(0);
+  });
+  it("verificação feita em outro domínio não vale (e-mail mudou ou virou provedor gratuito)", () => {
+    expect(pontos({ email: "a@novo.com.br", alvoVerificado: "antigo.com.br", estadoVerificacao: "ok" }, "site")).toBe(15);
+    expect(pontos({ email: "a@hootmail.com", emailRepeticoes: 1, alvoVerificado: "hootmail.com", estadoVerificacao: "sem_https" }, "site")).toBe(40);
+  });
+  it("provedor gratuito digitado errado conta como gratuito", () => {
+    for (const email of ["a@hootmail.com", "a@outook.com", "a@homtmail.com", "a@gmail.com.br"]) {
+      expect(pontos({ email, emailRepeticoes: 1 }, "site"), email).toBe(40);
+    }
   });
   it("inconclusivo cai para a pista do e-mail", () => {
     expect(pontos({ email: "loja@gmail.com", emailRepeticoes: 1, estadoVerificacao: "inconclusivo" }, "site")).toBe(40);
@@ -91,7 +106,7 @@ describe("nota total e modelo", () => {
     expect(r.modelo).toBe("empresa-nova");
   });
   it("site com problema usa o modelo próprio", () => {
-    expect(calcularNota({ ...base, estadoVerificacao: "fora_do_ar" }, ctx).modelo).toBe("site-com-problema");
+    expect(calcularNota({ ...base, ...comDominio, estadoVerificacao: "fora_do_ar" }, ctx).modelo).toBe("site-com-problema");
   });
   it("empresa antiga sem pista usa sem-site", () => {
     expect(calcularNota(base, ctx).modelo).toBe("sem-site");

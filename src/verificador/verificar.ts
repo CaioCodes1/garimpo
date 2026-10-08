@@ -1,61 +1,52 @@
 import { promises as dns } from "node:dns";
 import { emTransacao, type Banco } from "../db/banco";
-import { dominioDoEmail, type EstadoVerificacao } from "../pontuador/nota";
+import type { EstadoVerificacao } from "../pontuador/nota";
+import { alvoDaEmpresa, type Alvo } from "./alvo";
+
+export { alvoDaEmpresa, type Alvo } from "./alvo";
 
 /** O que uma verificação isolada concluiu, antes de olhar o histórico. */
-export type Resultado = "ok" | "sem_https" | "sem_site" | "falha";
+export type Resultado = "ok" | "sem_https" | "sem_site" | "falha" | "incerto";
 
 export type RespostaDns = "tem_ip" | "sem_ip" | "erro";
+
+/**
+ * Resposta de um pedido HTTP: o status, ou o motivo de não haver um.
+ * - "cadeia_incompleta": o servidor não mandou o certificado intermediário. O Node recusa, mas os
+ *   navegadores completam a cadeia sozinhos e abrem o site normalmente. Não é problema do cliente.
+ * - "tempo_esgotado": não respondeu a tempo. Pode ser lentidão; não prova nada.
+ * - null: recusou, resetou ou o certificado é de fato inválido (nome errado, vencido, autoassinado).
+ */
+export type RespostaHttp = number | "cadeia_incompleta" | "tempo_esgotado" | null;
 
 /** Tudo que toca a rede passa por aqui, para os testes poderem simular. */
 export interface Sonda {
   dns(host: string): Promise<RespostaDns>;
-  /** Status HTTP, ou null se não houve resposta (recusa, TLS, tempo esgotado). */
-  http(url: string, seguirRedirecionamento: boolean): Promise<number | null>;
+  http(url: string, seguirRedirecionamento: boolean): Promise<RespostaHttp>;
 }
 
-export interface Alvo {
-  host: string;
-  /** Domínio de e-mail sem endereço web = "tem domínio, sem site". Site do OSM sem endereço = falha. */
-  origem: "email" | "osm";
-}
+const responde = (r: RespostaHttp): r is number => typeof r === "number" && r < 500;
 
-export function alvoDaEmpresa(
-  siteOsm: string | null,
-  email: string,
-  emailProprio: boolean,
-  provedores: Set<string>,
-): Alvo | null {
-  if (siteOsm) {
-    try {
-      const url = new URL(/^https?:\/\//i.test(siteOsm) ? siteOsm : `https://${siteOsm}`);
-      return { host: url.hostname.toLowerCase(), origem: "osm" };
-    } catch {
-      return null;
-    }
-  }
-  const dominio = dominioDoEmail(email);
-  if (!dominio || !emailProprio || provedores.has(dominio) || !dominio.includes(".")) return null;
-  return { host: dominio, origem: "email" };
-}
-
-export async function verificarAlvo(alvo: Alvo, sonda: Sonda): Promise<Resultado | "erro_dns"> {
+export async function verificarAlvo(alvo: Alvo, sonda: Sonda): Promise<Resultado> {
   const outro = alvo.host.startsWith("www.") ? alvo.host.slice(4) : `www.${alvo.host}`;
   const respostas = await Promise.all([sonda.dns(alvo.host), sonda.dns(outro)]);
   const hosts = [alvo.host, outro].filter((_, i) => respostas[i] === "tem_ip");
   if (hosts.length === 0) {
-    if (respostas.includes("erro")) return "erro_dns";
+    if (respostas.includes("erro")) return "incerto";
     return alvo.origem === "email" ? "sem_site" : "falha";
   }
+  let httpsDemorou = false;
   for (const host of hosts) {
     const https = await sonda.http(`https://${host}/`, true);
     // 4xx ainda é um servidor respondendo (proteção anti-robô, página raiz faltando): não dá para
     // afirmar que há problema, e afirmar problema sem certeza é o pior erro possível aqui.
-    if (https !== null && https < 500) return "ok";
+    if (responde(https) || https === "cadeia_incompleta") return "ok";
+    if (https === "tempo_esgotado") httpsDemorou = true;
   }
   for (const host of hosts) {
     const http = await sonda.http(`http://${host}/`, false);
-    if (http !== null && http < 500) return "sem_https";
+    // HTTP responde, mas o HTTPS só demorou: talvez exista e esteja lento. Não afirma nada.
+    if (responde(http)) return httpsDemorou ? "incerto" : "sem_https";
   }
   return "falha";
 }
@@ -72,11 +63,12 @@ const UMA_HORA = 60 * 60 * 1000;
  * Qualquer sucesso zera o histórico.
  */
 export function proximoEstado(
-  resultado: Resultado | "erro_dns",
+  resultado: Resultado,
   anterior: Historico | null,
   agora: Date,
 ): { estado: EstadoVerificacao } & Historico {
-  if (resultado === "erro_dns") {
+  // Incerteza não conta como falha nem zera o histórico.
+  if (resultado === "incerto") {
     return { estado: "inconclusivo", falhas: anterior?.falhas ?? 0, primeiraFalhaEm: anterior?.primeiraFalhaEm ?? null };
   }
   if (resultado !== "falha") return { estado: resultado, falhas: 0, primeiraFalhaEm: null };
@@ -110,11 +102,27 @@ export function sondaReal(userAgent: string, tempoLimiteMs = 8_000): Sonda {
         });
         await resposta.body?.cancel();
         return resposta.status;
-      } catch {
-        return null;
+      } catch (erro) {
+        return classificarErroHttp(erro);
       }
     },
   };
+}
+
+const ERROS_DE_CADEIA = new Set([
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+  "UNABLE_TO_GET_ISSUER_CERT",
+]);
+
+/** Traduz o erro do fetch (o undici põe o código do Node em erro.cause) para a sonda. */
+export function classificarErroHttp(erro: unknown): RespostaHttp {
+  const e = erro as { name?: string; cause?: { code?: string; name?: string } };
+  if (e.name === "TimeoutError" || e.cause?.name === "TimeoutError" || e.cause?.code === "UND_ERR_CONNECT_TIMEOUT") {
+    return "tempo_esgotado";
+  }
+  if (e.cause?.code && ERROS_DE_CADEIA.has(e.cause.code)) return "cadeia_incompleta";
+  return null;
 }
 
 /** Antes de acusar sites alheios, confere se a internet daqui está funcionando. */
@@ -133,6 +141,8 @@ interface Pendente {
   email: string;
   email_repeticoes: number;
   alvo_anterior: string | null;
+  estado_anterior: EstadoVerificacao | null;
+  verificado_em: string | null;
   falhas: number | null;
   primeira_falha_em: string | null;
 }
@@ -151,29 +161,35 @@ export interface OpcoesVerificacao {
 export async function verificarPendentes(db: Banco, o: OpcoesVerificacao): Promise<Record<EstadoVerificacao, number>> {
   const agora = o.agora ?? (() => new Date());
   const validade = new Date(agora().getTime() - (o.validadeDias ?? 30) * 86_400_000).toISOString();
-  const pendentes = db
+  const candidatas = db
     .prepare(
       `SELECT e.cnpj, e.site_osm, e.email, e.email_repeticoes,
-              v.alvo AS alvo_anterior, v.falhas, v.primeira_falha_em
+              v.alvo AS alvo_anterior, v.estado AS estado_anterior, v.verificado_em, v.falhas, v.primeira_falha_em
        FROM empresas e LEFT JOIN verificacoes v ON v.cnpj = e.cnpj
-       WHERE e.situacao = 'ativa'
-         AND (e.site_osm IS NOT NULL OR e.email <> '')
-         AND (v.cnpj IS NULL OR v.estado = 'inconclusivo' OR v.verificado_em < ?)`,
+       WHERE e.situacao = 'ativa' AND (e.site_osm IS NOT NULL OR e.email <> '')`,
     )
-    .all(validade) as unknown as Pendente[];
+    .all() as unknown as Pendente[];
 
   // Várias empresas podem usar o mesmo domínio: cada domínio é testado uma vez só.
   const porAlvo = new Map<string, { alvo: Alvo; empresas: Pendente[] }>();
-  for (const p of pendentes) {
+  let pendentes = 0;
+  for (const p of candidatas) {
     const alvo = alvoDaEmpresa(p.site_osm, p.email, p.email_repeticoes < o.limiteContador, o.provedores);
     if (!alvo) continue;
+    const vale =
+      p.alvo_anterior === alvo.host &&
+      p.estado_anterior !== "inconclusivo" &&
+      p.verificado_em !== null &&
+      p.verificado_em >= validade;
+    if (vale) continue;
+    pendentes++;
     const chave = `${alvo.origem}:${alvo.host}`;
     const grupo = porAlvo.get(chave) ?? { alvo, empresas: [] };
     grupo.empresas.push(p);
     porAlvo.set(chave, grupo);
   }
   const grupos = [...porAlvo.values()];
-  o.log?.(`${grupos.length} domínios para verificar (${pendentes.length} empresas candidatas).`);
+  o.log?.(`${grupos.length} domínios para verificar (${pendentes} empresas).`);
 
   const gravar = db.prepare(
     `INSERT INTO verificacoes (cnpj, alvo, estado, falhas, primeira_falha_em, verificado_em) VALUES (?, ?, ?, ?, ?, ?)

@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { abrirBanco } from "@/db/banco";
+import { ehProvedorGratuito } from "@/verificador/alvo";
 import {
   alvoDaEmpresa,
+  classificarErroHttp,
   proximoEstado,
   verificarAlvo,
   verificarPendentes,
   type RespostaDns,
+  type RespostaHttp,
   type Sonda,
 } from "@/verificador/verificar";
 
-function sonda(dns: Record<string, RespostaDns>, http: Record<string, number | null>): Sonda {
+function sonda(dns: Record<string, RespostaDns>, http: Record<string, RespostaHttp>): Sonda {
   return {
     dns: async (host) => dns[host] ?? "sem_ip",
     http: async (url) => (url in http ? http[url]! : null),
@@ -17,6 +20,32 @@ function sonda(dns: Record<string, RespostaDns>, http: Record<string, number | n
 }
 
 const provedores = new Set(["gmail.com"]);
+
+describe("classificação de erro do fetch", () => {
+  it("separa tempo esgotado, cadeia incompleta e erro definitivo", () => {
+    expect(classificarErroHttp(new DOMException("x", "TimeoutError"))).toBe("tempo_esgotado");
+    expect(classificarErroHttp(Object.assign(new TypeError("fetch failed"), { cause: { code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" } }))).toBe("cadeia_incompleta");
+    expect(classificarErroHttp(Object.assign(new TypeError("fetch failed"), { cause: { code: "ERR_TLS_CERT_ALTNAME_INVALID" } }))).toBeNull();
+    expect(classificarErroHttp(Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } }))).toBeNull();
+  });
+});
+
+describe("provedor gratuito digitado errado", () => {
+  const todos = new Set(["gmail.com", "hotmail.com", "outlook.com", "icloud.com", "uol.com.br"]);
+  it("reconhece erro de uma letra e sufixo trocado", () => {
+    for (const d of ["hootmail.com", "outook.com", "icoud.com", "homtmail.com", "gmial.com", "gmail.com.br"]) {
+      expect(ehProvedorGratuito(d, todos), d).toBe(true);
+    }
+  });
+  it("não confunde domínios legítimos parecidos", () => {
+    for (const d of ["hotmart.com", "outlet.com.br", "sol.com.br", "loja.com.br", "gmail.org"]) {
+      expect(ehProvedorGratuito(d, todos), d).toBe(false);
+    }
+  });
+  it("não vira alvo de verificação", () => {
+    expect(alvoDaEmpresa(null, "dono@hootmail.com", true, todos)).toBeNull();
+  });
+});
 
 describe("alvo", () => {
   it("prefere o site do OSM", () => {
@@ -51,7 +80,17 @@ describe("uma verificação", () => {
     expect(await verificarAlvo({ host: "loja.com.br", origem: "osm" }, sonda({}, {}))).toBe("falha");
   });
   it("erro de DNS não conclui nada", async () => {
-    expect(await verificarAlvo(email, sonda({ "loja.com.br": "erro" }, {}))).toBe("erro_dns");
+    expect(await verificarAlvo(email, sonda({ "loja.com.br": "erro" }, {}))).toBe("incerto");
+  });
+  it("certificado com cadeia incompleta = ok (o navegador completa a cadeia e abre)", async () => {
+    expect(
+      await verificarAlvo(email, sonda({ "loja.com.br": "tem_ip" }, { "https://loja.com.br/": "cadeia_incompleta", "http://loja.com.br/": 200 })),
+    ).toBe("ok");
+  });
+  it("HTTPS só demorou e HTTP responde = incerto, nunca sem_https", async () => {
+    expect(
+      await verificarAlvo(email, sonda({ "loja.com.br": "tem_ip" }, { "https://loja.com.br/": "tempo_esgotado", "http://loja.com.br/": 200 })),
+    ).toBe("incerto");
   });
   it("servidor com erro 5xx = falha", async () => {
     expect(
@@ -82,8 +121,8 @@ describe("fora do ar só com duas falhas separadas por 1 hora", () => {
       primeiraFalhaEm: null,
     });
   });
-  it("erro de DNS não conta como falha", () => {
-    expect(proximoEstado("erro_dns", { falhas: 1, primeiraFalhaEm: "x" }, t0)).toEqual({ estado: "inconclusivo", falhas: 1, primeiraFalhaEm: "x" });
+  it("incerteza não conta como falha", () => {
+    expect(proximoEstado("incerto", { falhas: 1, primeiraFalhaEm: "x" }, t0)).toEqual({ estado: "inconclusivo", falhas: 1, primeiraFalhaEm: "x" });
   });
 });
 

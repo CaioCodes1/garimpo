@@ -11,6 +11,8 @@ interface Linha {
   telefone2_repeticoes: number;
   data_abertura: string | null;
   cnae: string;
+  site_osm: string | null;
+  alvo: string | null;
   estado: EstadoVerificacao | null;
 }
 
@@ -19,7 +21,7 @@ export function pontuarTodas(db: Banco, ctx: ContextoNota): number {
   const linhas = db
     .prepare(
       `SELECT e.cnpj, e.email, e.email_repeticoes, e.telefone1, e.telefone1_repeticoes,
-              e.telefone2, e.telefone2_repeticoes, e.data_abertura, e.cnae, v.estado
+              e.telefone2, e.telefone2_repeticoes, e.data_abertura, e.cnae, e.site_osm, v.alvo, v.estado
        FROM empresas e LEFT JOIN verificacoes v ON v.cnpj = e.cnpj
        WHERE e.situacao = 'ativa'`,
     )
@@ -43,6 +45,8 @@ export function pontuarTodas(db: Banco, ctx: ContextoNota): number {
           telefone2Repeticoes: l.telefone2_repeticoes,
           dataAbertura: l.data_abertura,
           cnae: l.cnae,
+          siteOsm: l.site_osm,
+          alvoVerificado: l.alvo,
           estadoVerificacao: l.estado,
         },
         ctx,

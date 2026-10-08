@@ -1,4 +1,7 @@
 import { acharRamo, type NomeModelo, type Ramo } from "../config";
+import { alvoDaEmpresa, dominioDoEmail, ehProvedorGratuito, estadoVigente } from "../verificador/alvo";
+
+export { dominioDoEmail } from "../verificador/alvo";
 
 export type EstadoVerificacao = "ok" | "sem_https" | "sem_site" | "fora_do_ar" | "inconclusivo";
 
@@ -11,6 +14,9 @@ export interface EntradaNota {
   telefone2Repeticoes: number;
   dataAbertura: string | null;
   cnae: string;
+  siteOsm: string | null;
+  /** Domínio em que a verificação gravada foi feita; ela só vale se for o alvo atual. */
+  alvoVerificado: string | null;
   estadoVerificacao: EstadoVerificacao | null;
 }
 
@@ -33,6 +39,10 @@ export interface ResultadoNota {
   modelo: NomeModelo;
   /** Celular próprio (DDD + número), quando há: é o que vira link do WhatsApp. */
   celular: string | null;
+  /** A verificação que valeu para a nota (null se não havia uma para o alvo atual). */
+  estado: EstadoVerificacao | null;
+  /** O domínio que representa o site da empresa, quando há. */
+  alvo: string | null;
 }
 
 /**
@@ -66,13 +76,9 @@ export function textoTempoAberta(meses: number): string {
   return anos === 1 ? "há 1 ano" : `há ${anos} anos`;
 }
 
-export function dominioDoEmail(email: string): string {
-  return email.split("@")[1]?.trim().toLowerCase() ?? "";
-}
-
-function sinalDeSite(e: EntradaNota, emailProprio: boolean, ctx: ContextoNota): Motivo {
-  // 1. O verificador decide quando chegou a uma conclusão.
-  switch (e.estadoVerificacao) {
+function sinalDeSite(e: EntradaNota, estado: EstadoVerificacao | null, emailProprio: boolean, ctx: ContextoNota): Motivo {
+  // 1. O verificador decide quando chegou a uma conclusão sobre o alvo atual.
+  switch (estado) {
     case "ok":
       return { tipo: "site", texto: "já tem site funcionando", pontos: 0 };
     case "sem_site":
@@ -86,7 +92,7 @@ function sinalDeSite(e: EntradaNota, emailProprio: boolean, ctx: ContextoNota): 
   }
   // 2. Senão, vale a pista do e-mail.
   const dominio = dominioDoEmail(e.email);
-  if (emailProprio && ctx.provedores.has(dominio)) {
+  if (emailProprio && ehProvedorGratuito(dominio, ctx.provedores)) {
     return { tipo: "site", texto: `e-mail @${dominio}, provavelmente sem site`, pontos: 40 };
   }
   // 3. Senão, não dá para afirmar nada.
@@ -97,8 +103,10 @@ export function calcularNota(e: EntradaNota, ctx: ContextoNota): ResultadoNota {
   const motivos: Motivo[] = [];
   const proprio = (valor: string, repeticoes: number) => valor !== "" && repeticoes < ctx.limiteContador;
   const emailProprio = proprio(e.email, e.emailRepeticoes);
+  const alvo = alvoDaEmpresa(e.siteOsm, e.email, emailProprio, ctx.provedores);
+  const estado = estadoVigente(alvo, e.alvoVerificado, e.estadoVerificacao);
 
-  const site = sinalDeSite(e, emailProprio, ctx);
+  const site = sinalDeSite(e, estado, emailProprio, ctx);
   motivos.push(site);
 
   const meses = e.dataAbertura ? mesesDesde(e.dataAbertura, ctx.hoje) : null;
@@ -123,11 +131,18 @@ export function calcularNota(e: EntradaNota, ctx: ContextoNota): ResultadoNota {
   if (temContador) motivos.push({ tipo: "contato", texto: "parte do contato é provavelmente do contador", pontos: 0 });
 
   const modelo: NomeModelo =
-    e.estadoVerificacao === "sem_https" || e.estadoVerificacao === "fora_do_ar"
+    estado === "sem_https" || estado === "fora_do_ar"
       ? "site-com-problema"
       : meses !== null && meses < 12
         ? "empresa-nova"
         : "sem-site";
 
-  return { nota: Math.min(100, motivos.reduce((s, m) => s + m.pontos, 0)), motivos, modelo, celular };
+  return {
+    nota: Math.min(100, motivos.reduce((s, m) => s + m.pontos, 0)),
+    motivos,
+    modelo,
+    celular,
+    estado,
+    alvo: alvo?.host ?? null,
+  };
 }

@@ -181,6 +181,22 @@ Resultados possíveis:
 | `fora_do_ar` | Sem resposta ou erro do servidor **em duas verificações com pelo menos 1 hora de intervalo** | Site com problema |
 | `inconclusivo` | Tempo esgotado ou erro de rede só nesta verificação | Não dá para afirmar nada |
 
+Ajustes medidos com os dados reais (08/10/2026):
+
+- **Provedor gratuito digitado errado** ("hootmail.com", "outook.com",
+  "gmial.com", "gmail.com.br") conta como provedor gratuito e não é
+  verificado: esses domínios são de terceiros e respondem com páginas
+  estacionadas. Critério: nome do provedor com 5+ letras, 1 edição de
+  diferença (troca de letras vizinhas conta como 1), sufixo com/com.br/net.
+- **Certificado com cadeia incompleta** (`UNABLE_TO_VERIFY_LEAF_SIGNATURE`,
+  `UNABLE_TO_GET_ISSUER_CERT*`) conta como `ok`: o Node recusa, mas o
+  navegador completa a cadeia e abre o site.
+- **HTTPS com tempo esgotado e HTTP respondendo** é incerto, não
+  `sem_https`.
+- A nota só usa uma verificação **feita no alvo atual** da empresa: se o
+  e-mail mudou, ou o domínio passou a ser reconhecido como provedor gratuito,
+  a verificação antiga é ignorada e o verificador refaz.
+
 Regra dura: **nenhuma mensagem diz que o site está com problema** se o estado
 não for `sem_https` ou `fora_do_ar` confirmado. Tempo limite de 8 s por
 requisição e no máximo 5 verificações simultâneas. Erro do próprio DNS não

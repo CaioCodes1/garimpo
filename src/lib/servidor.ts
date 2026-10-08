@@ -1,5 +1,5 @@
 import "server-only";
-import { acharRamo, lerModelos, lerPerfil, lerProvedoresEmail, lerRamos, type NomeModelo } from "../config";
+import { acharRamo, lerModelos, lerPerfil, lerProvedoresEmail, lerRamos } from "../config";
 import type { Lead } from "../consultas/painel";
 import { abrirBanco, type Banco } from "../db/banco";
 import { gerarMensagem, linkPesquisaGoogle, linkWhatsApp } from "../mensagens/mensagens";
@@ -58,20 +58,22 @@ export function montarCartoes(leads: Lead[], hoje = new Date()): { cartoes: Cart
         telefone2Repeticoes: l.telefone2_repeticoes,
         dataAbertura: l.data_abertura,
         cnae: l.cnae,
+        siteOsm: l.site_osm,
+        alvoVerificado: l.alvo,
         estadoVerificacao: l.estado as EstadoVerificacao | null,
       },
       ctx,
     );
     // MEI sem nome fantasia tem o nome da pessoa como razão social: a mensagem fala "seu negócio".
     const temNomeFantasia = /\p{L}/u.test(l.nome_fantasia);
-    const mensagem = gerarMensagem(modelos, l.modelo as NomeModelo, {
+    const mensagem = gerarMensagem(modelos, r.modelo, {
       nome: temNomeFantasia ? nome : "seu negócio",
       ramoRotulo: acharRamo(l.cnae, ramos)?.rotulo ?? "negócios como o seu",
       bairro: l.bairro,
       municipio: l.municipio_nome,
       tempoAberta: l.data_abertura ? textoTempoAberta(mesesDesde(l.data_abertura, hoje)) : "recentemente",
-      site: l.alvo ?? l.site_osm ?? "",
-      estadoVerificacao: l.estado,
+      site: r.alvo ?? "",
+      estadoVerificacao: r.estado,
     }, perfil);
 
     const contatos: Cartao["contatos"] = [];
