@@ -6,3 +6,4 @@ config/perfil.json
 next-env.d.ts
 coverage/
 .env
+.claude/
