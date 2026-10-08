@@ -9,6 +9,12 @@ const RAMOS: Ramo[] = [
 ];
 const ctx = {
   ramos: RAMOS,
+  faixasIdade: [
+    { ateMeses: 6, pontos: 10 },
+    { ateMeses: 12, pontos: 20 },
+    { ateMeses: 36, pontos: 30 },
+    { ateMeses: 60, pontos: 10 },
+  ],
   limiteContador: 5,
   provedores: new Set(["gmail.com", "hotmail.com", "outlook.com"]),
   hoje: new Date(2026, 9, 7), // 07/10/2026
@@ -68,10 +74,11 @@ describe("sinal de site (um só, nesta ordem: verificador → e-mail → desconh
 });
 
 describe("idade", () => {
-  it("menos de 6 meses vale 30; até 1 ano 20; até 3 anos 10; mais, 0", () => {
-    expect(pontos({ dataAbertura: "2026-06-01" }, "idade")).toBe(30);
-    expect(pontos({ dataAbertura: "2026-01-01" }, "idade")).toBe(20);
-    expect(pontos({ dataAbertura: "2024-01-01" }, "idade")).toBe(10);
+  it("segue as faixas da configuração: 1 a 3 anos no topo", () => {
+    expect(pontos({ dataAbertura: "2026-06-01" }, "idade")).toBe(10); // 4 meses
+    expect(pontos({ dataAbertura: "2026-01-01" }, "idade")).toBe(20); // 9 meses
+    expect(pontos({ dataAbertura: "2024-01-01" }, "idade")).toBe(30); // 2 anos e 9 meses
+    expect(pontos({ dataAbertura: "2022-01-01" }, "idade")).toBe(10); // 4 anos e 9 meses
     expect(pontos({ dataAbertura: "2015-01-01" }, "idade")).toBe(0);
   });
 });
@@ -97,13 +104,16 @@ describe("ramo e contato", () => {
 });
 
 describe("nota total e modelo", () => {
-  it("lead quente: salão novo, @gmail, celular = 100", () => {
+  it("lead quente: salão com 2 anos, @gmail, celular = 100", () => {
     const r = calcularNota(
-      { ...base, cnae: "9602501", dataAbertura: "2026-06-01", email: "bella@gmail.com", emailRepeticoes: 1, telefone1: "11987654321" },
+      { ...base, cnae: "9602501", dataAbertura: "2024-06-01", email: "bella@gmail.com", emailRepeticoes: 1, telefone1: "11987654321" },
       ctx,
     );
     expect(r.nota).toBe(100);
-    expect(r.modelo).toBe("empresa-nova");
+    expect(r.modelo).toBe("sem-site");
+  });
+  it("empresa com menos de 1 ano usa o modelo de empresa nova", () => {
+    expect(calcularNota({ ...base, dataAbertura: "2026-06-01" }, ctx).modelo).toBe("empresa-nova");
   });
   it("site com problema usa o modelo próprio", () => {
     expect(calcularNota({ ...base, ...comDominio, estadoVerificacao: "fora_do_ar" }, ctx).modelo).toBe("site-com-problema");
@@ -143,6 +153,13 @@ describe("tempo e descrição", () => {
     expect(nomeExibicao("NATALIA PAULETI HARMONIZACAO LTDA", "X")).toBe("Natalia Pauleti Harmonizacao");
     expect(nomeExibicao("CANTINA DO JOAO LTDA - ME", "X")).toBe("Cantina do Joao");
     expect(nomeExibicao("LTDA", "X")).toBe("Ltda");
+  });
+  it("mantém siglas em maiúscula sem estragar palavras comuns", () => {
+    expect(nomeExibicao("JF PSICOLOGA", "X")).toBe("JF Psicologa");
+    expect(nomeExibicao("CHURRAS EXPRESS SBC ANCHIETA", "X")).toBe("Churras Express SBC Anchieta");
+    expect(nomeExibicao("M&M CUIDADOS", "X")).toBe("M&M Cuidados");
+    expect(nomeExibicao("BAR DO ZE", "X")).toBe("Bar do Ze");
+    expect(nomeExibicao("PADARIA 2 IRMAOS", "X")).toBe("Padaria 2 Irmaos");
   });
   it("mantém maiúscula depois de ponto", () => {
     expect(nomeExibicao("D.FERNANDES DA COSTA", "X")).toBe("D.Fernandes da Costa");

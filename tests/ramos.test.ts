@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { acharRamo, lerRamos } from "@/config";
+import { acharRamo, lerFaixasIdade, lerRamos } from "@/config";
 
 process.env.GARIMPO_RAIZ = path.resolve(__dirname, "..");
 const { ramos } = lerRamos();
@@ -24,6 +24,12 @@ describe("config/ramos.json", () => {
     for (const cnae of ["6201501", "5320202", "7319002", "4930201", "8219999"]) {
       expect(acharRamo(cnae, ramos), cnae).toBeUndefined();
     }
+  });
+
+  it("config/nota.json tem faixas de idade em ordem crescente", () => {
+    const faixas = lerFaixasIdade();
+    expect(faixas.length).toBeGreaterThan(0);
+    for (let i = 1; i < faixas.length; i++) expect(faixas[i]!.ateMeses).toBeGreaterThan(faixas[i - 1]!.ateMeses);
   });
 
   it("não tem prefixo repetido nem peso fora de 10/20", () => {

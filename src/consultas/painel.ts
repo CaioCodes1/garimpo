@@ -14,12 +14,20 @@ export const ROTULO_STATUS: Record<Status, string> = {
   nao_contatar: "Não contatar",
 };
 
+/** Faixas de idade do filtro: meses de aberta em [de, ate). */
+export const FAIXAS_IDADE = {
+  ate1: { rotulo: "Menos de 1 ano", de: 0, ate: 12 },
+  "1a3": { rotulo: "1 a 3 anos", de: 12, ate: 36 },
+  "3a5": { rotulo: "3 a 5 anos", de: 36, ate: 60 },
+  mais5: { rotulo: "Mais de 5 anos", de: 60, ate: null },
+} as const;
+export type FaixaIdadeFiltro = keyof typeof FAIXAS_IDADE;
+
 export interface Filtros {
   bairro?: string;
   ramo?: string;
   notaMin?: number;
-  /** Aberta nos últimos N meses. */
-  meses?: number;
+  idade?: FaixaIdadeFiltro;
   /** Sem status: todos menos "não contatar". */
   status?: Status;
   busca?: string;
@@ -80,10 +88,15 @@ function onde(db: Banco, f: Filtros, hoje: Date): { sql: string; params: (string
     partes.push("p.nota >= ?");
     params.push(f.notaMin);
   }
-  if (f.meses) {
-    const limite = new Date(hoje.getFullYear(), hoje.getMonth() - f.meses, hoje.getDate());
-    partes.push("e.data_abertura >= ?");
-    params.push(limite.toISOString().slice(0, 10));
+  if (f.idade) {
+    const { de, ate } = FAIXAS_IDADE[f.idade];
+    const mesesAtras = (n: number) => new Date(hoje.getFullYear(), hoje.getMonth() - n, hoje.getDate()).toISOString().slice(0, 10);
+    partes.push("e.data_abertura <= ?");
+    params.push(mesesAtras(de));
+    if (ate !== null) {
+      partes.push("e.data_abertura > ?");
+      params.push(mesesAtras(ate));
+    }
   }
   if (f.busca) {
     partes.push("(e.nome_fantasia LIKE ? OR e.razao_social LIKE ?)");

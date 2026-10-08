@@ -1,6 +1,17 @@
 import Link from "next/link";
 import { lerRamos } from "../config";
-import { bairros, contagemFunil, listarLeads, resumoBase, ROTULO_STATUS, STATUS, type Filtros, type Status } from "../consultas/painel";
+import {
+  bairros,
+  contagemFunil,
+  FAIXAS_IDADE,
+  listarLeads,
+  resumoBase,
+  ROTULO_STATUS,
+  STATUS,
+  type FaixaIdadeFiltro,
+  type Filtros,
+  type Status,
+} from "../consultas/painel";
 import { tituloCaso } from "../lib/texto";
 import { montarCartoes, obterBanco, type Cartao } from "../lib/servidor";
 import { acaoSalvarAnotacoes } from "./acoes";
@@ -19,7 +30,7 @@ function lerFiltros(p: Parametros): Filtros {
     bairro: texto("bairro"),
     ramo: texto("ramo"),
     notaMin: numero("nota"),
-    meses: numero("meses"),
+    idade: texto("idade") && texto("idade")! in FAIXAS_IDADE ? (texto("idade") as FaixaIdadeFiltro) : undefined,
     status: STATUS.includes(status as Status) ? (status as Status) : undefined,
     busca: texto("busca"),
   };
@@ -119,12 +130,12 @@ export default async function Pagina({ searchParams }: { searchParams: Promise<P
             ))}
           </select>
         </Campo>
-        <Campo rotulo="Aberta nos últimos">
-          <select name="meses" defaultValue={String(filtros.meses ?? "")}>
-            <option value="">Qualquer data</option>
-            {[3, 6, 12, 24].map((m) => (
-              <option key={m} value={m}>
-                {m} meses
+        <Campo rotulo="Idade da empresa">
+          <select name="idade" defaultValue={filtros.idade ?? ""}>
+            <option value="">Qualquer</option>
+            {Object.entries(FAIXAS_IDADE).map(([chave, faixa]) => (
+              <option key={chave} value={chave}>
+                {faixa.rotulo}
               </option>
             ))}
           </select>

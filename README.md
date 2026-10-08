@@ -11,11 +11,11 @@ e sem chave de API.
 ┌──────────────────────────────────────────────────────────┐
 │ Studio Bella Cabeleireiros                          100  │
 │ Salão de beleza · MEI · Rudge Ramos                      │
-│ Aberta há 4 meses (jun/2026)                             │
+│ Aberta há 2 anos (mar/2024)                              │
 │                                                          │
 │ Por que é oportunidade                                   │
 │ +40 e-mail @gmail.com, provavelmente sem site            │
-│ +30 aberta há 4 meses                                    │
+│ +30 aberta há 2 anos                                     │
 │ +20 ramo: salão de beleza                                │
 │ +10 dá para chamar no WhatsApp                           │
 │                                                          │
@@ -52,9 +52,13 @@ dev freelancer) ficam fora de propósito, porque esses não compram site.
 | Site sem HTTPS ou fora do ar (confirmado) | 30 |
 | Não dá para saber se tem site | 15 |
 | Site funcionando | 0 |
-| Aberta há menos de 6 meses / 1 ano / 3 anos | 30 / 20 / 10 |
+| Idade: 1 a 3 anos / 6 a 12 meses / menos de 6 meses ou 3 a 5 anos | 30 / 20 / 10 |
 | Ramo que depende de ser achado online / demais | 20 / 10 |
 | Celular próprio / só fixo | 10 / 5 |
+
+A idade é configurável em [`config/nota.json`](config/nota.json). O padrão põe no topo quem tem 1 a
+3 anos: já passou do começo, tem caixa e ainda não tem site. Para priorizar recém-abertas, troque
+os pesos.
 
 **Contador:** um e-mail ou telefone repetido em 5 ou mais empresas do município é tratado como
 do contador. Ele não conta como pista nem como contato.
@@ -100,7 +104,7 @@ novo. Reimportar no mês seguinte atualiza o cadastro **sem mexer no seu funil**
 
 ## No painel
 
-- Filtros por bairro, ramo, nota mínima, "aberta nos últimos N meses", status e nome.
+- Filtros por bairro, ramo, nota mínima, idade da empresa (menos de 1 ano, 1 a 3, 3 a 5, mais de 5), status e nome.
 - **Copiar mensagem** e **Abrir no WhatsApp**: abre o WhatsApp com o texto pronto, mas **quem
   envia é você**. Não existe envio automático.
 - **Pesquisar no Google**: confirma em segundos se a empresa já tem site.
@@ -110,6 +114,7 @@ novo. Reimportar no mês seguinte atualiza o cadastro **sem mexer no seu funil**
 
 ## Personalizar
 
+- [`config/nota.json`](config/nota.json): os pontos por idade da empresa.
 - [`config/ramos.json`](config/ramos.json): os ramos aceitos e o peso de cada um. Vende sistema
   para clínicas? Deixe só os ramos de saúde.
 - [`config/modelos/`](config/modelos): os três textos (empresa nova, sem site, site com

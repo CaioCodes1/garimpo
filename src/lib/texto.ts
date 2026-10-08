@@ -62,7 +62,14 @@ export function tituloCaso(texto: string): string {
     .filter(Boolean)
     .map((p, i) => (i > 0 && MINUSCULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
     .map((p) => p.replace(/\.(\p{L})/gu, (_, letra: string) => `.${letra.toUpperCase()}`))
+    .map((p) => (ehSigla(p) ? p.toUpperCase() : p))
     .join(" ");
+}
+
+/** "JF", "LFS", "SBC", "M&M": palavra curta sem vogal, ou com "&", é sigla. */
+function ehSigla(palavra: string): boolean {
+  if (palavra.includes("&")) return true;
+  return palavra.length <= 4 && /\p{L}/u.test(palavra) && !/[aeiouyáéíóúâêôãõà]/iu.test(palavra);
 }
 
 const SUFIXO_JURIDICO = /[\s,-]+(LTDA|LIMITADA|ME|EPP|EIRELI|S\/?A|SLU)\.?$/i;

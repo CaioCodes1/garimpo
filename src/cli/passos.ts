@@ -1,6 +1,6 @@
 import { rmSync } from "node:fs";
 import path from "node:path";
-import { lerFontes, lerProvedoresEmail, lerRamos, pastaDados } from "../config";
+import { lerFaixasIdade, lerFontes, lerProvedoresEmail, lerRamos, pastaDados } from "../config";
 import { abrirBanco } from "../db/banco";
 import { enriquecer } from "../enriquecedor/osm";
 import { baixarMes } from "../importador/baixar";
@@ -72,7 +72,13 @@ export async function passoVerificar() {
 export async function passoPontuar() {
   const db = abrirBanco();
   const { ramos, limiteContador } = lerRamos();
-  const n = pontuarTodas(db, { ramos, limiteContador, provedores: lerProvedoresEmail(), hoje: new Date() });
+  const n = pontuarTodas(db, {
+    ramos,
+    faixasIdade: lerFaixasIdade(),
+    limiteContador,
+    provedores: lerProvedoresEmail(),
+    hoje: new Date(),
+  });
   log(`Nota calculada para ${n} empresas.`);
   db.close();
 }

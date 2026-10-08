@@ -222,9 +222,9 @@ contador. Ele não serve como pista de site nem como contato. A ficha mostra
 | Verificador `sem_https` ou `fora_do_ar` | 30 | "site com problema" |
 | Sem e-mail, e-mail de contador ou `inconclusivo` | 15 | "não dá para saber se tem site" |
 | Verificador `ok` | 0 | "já tem site funcionando" |
-| Aberta há menos de 6 meses | 30 | "aberta há N meses" |
+| Aberta há 1 a 3 anos | 30 | "aberta há N anos" |
 | Aberta há 6 a 12 meses | 20 | idem |
-| Aberta há 1 a 3 anos | 10 | idem |
+| Aberta há menos de 6 meses, ou há 3 a 5 anos | 10 | idem |
 | Ramo | peso do ramo (10 ou 20) | "ramo: <rótulo>" |
 | Celular próprio (não de contador) | 10 | "dá para chamar no WhatsApp" |
 | Só telefone fixo próprio | 5 | "só telefone fixo" |
@@ -236,6 +236,10 @@ chegou a um estado diferente de `inconclusivo`, ele decide; (2) senão, vale o
 e-mail (provedor gratuito → 40); (3) senão, 15. Assim, uma empresa com e-mail
 @gmail mas com site do OSM funcionando fica com 0, não com 40. Nota e motivos ficam gravados em
 `pontuacoes` para ordenar rápido.
+
+As faixas de idade ficam em `config/nota.json`. Em 08/10/2026 o Caio escolheu
+pôr no topo quem tem **1 a 3 anos** (antes eram as recém-abertas): já passou da
+fase mais arriscada, tem caixa e ainda não tem site.
 
 ### Descrição breve
 
@@ -264,7 +268,7 @@ fantasia; se estiver vazio, a razão social sem o sufixo jurídico.
 ## 10. Painel
 
 - **Lista**, ordenada por nota, com filtros: bairro, ramo, nota mínima,
-  "aberta nos últimos N meses" e status do funil. Empresas `nao_contatar` e
+  idade da empresa (menos de 1 ano, 1 a 3, 3 a 5, mais de 5) e status do funil. Empresas `nao_contatar` e
   `encerrada` ficam ocultas por padrão.
 - **Cartão / ficha:** nome e nota; descrição breve; tempo aberta; motivos; o
   contato (com o aviso de contador, se for o caso); a mensagem gerada.

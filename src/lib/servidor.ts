@@ -1,5 +1,5 @@
 import "server-only";
-import { acharRamo, lerModelos, lerPerfil, lerProvedoresEmail, lerRamos } from "../config";
+import { acharRamo, lerFaixasIdade, lerModelos, lerPerfil, lerProvedoresEmail, lerRamos } from "../config";
 import type { Lead } from "../consultas/painel";
 import { abrirBanco, type Banco } from "../db/banco";
 import { gerarMensagem, linkPesquisaGoogle, linkWhatsApp } from "../mensagens/mensagens";
@@ -43,7 +43,7 @@ export function montarCartoes(leads: Lead[], hoje = new Date()): { cartoes: Cart
   const provedores = lerProvedoresEmail();
   const modelos = lerModelos();
   const { perfil, exemplo } = lerPerfil();
-  const ctx = { ramos, limiteContador, provedores, hoje };
+  const ctx = { ramos, faixasIdade: lerFaixasIdade(), limiteContador, provedores, hoje };
 
   const cartoes = leads.map((l): Cartao => {
     const nome = nomeExibicao(l.nome_fantasia, l.razao_social);

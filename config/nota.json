@@ -1,0 +1,9 @@
+{
+  "observacao": "Pontos pela idade da empresa. Vale a primeira faixa em que 'meses de aberta' < ateMeses; depois da última, 0. O padrão prioriza empresas com 1 a 3 anos: já passaram do começo, têm caixa e ainda não têm site. Para priorizar recém-abertas, ponha 30 na primeira faixa.",
+  "idade": [
+    { "ateMeses": 6, "pontos": 10 },
+    { "ateMeses": 12, "pontos": 20 },
+    { "ateMeses": 36, "pontos": 30 },
+    { "ateMeses": 60, "pontos": 10 }
+  ]
+}

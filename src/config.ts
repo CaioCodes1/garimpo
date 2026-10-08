@@ -55,6 +55,15 @@ export function lerRamos(): ConfigRamos {
   return lerJson<ConfigRamos>("config", "ramos.json");
 }
 
+export interface FaixaIdade {
+  ateMeses: number;
+  pontos: number;
+}
+
+export function lerFaixasIdade(): FaixaIdade[] {
+  return lerJson<{ idade: FaixaIdade[] }>("config", "nota.json").idade;
+}
+
 export function lerFontes(): Fontes {
   return lerJson<Fontes>("config", "fontes.json");
 }

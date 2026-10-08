@@ -41,16 +41,21 @@ describe("bairros", () => {
 });
 
 describe("listagem e funil", () => {
-  it("ordena por nota e filtra nota mínima e abertura recente", () => {
+  it("ordena por nota e filtra nota mínima e faixa de idade", () => {
     const db = bancoCom([
       { cnpj: "1", bairro: "A", nota: 50, abertura: "2026-09-01" },
       { cnpj: "2", bairro: "A", nota: 95, abertura: "2019-01-01" },
-      { cnpj: "3", bairro: "A", nota: 80, abertura: "2026-08-01" },
+      { cnpj: "3", bairro: "A", nota: 80, abertura: "2024-08-01" },
+      { cnpj: "4", bairro: "A", nota: 70, abertura: "2023-10-07" },
     ]);
     const hoje = new Date(2026, 9, 7);
-    expect(listarLeads(db, {}, 1, 10, hoje).leads.map((l) => l.cnpj)).toEqual(["2", "3", "1"]);
-    expect(listarLeads(db, { notaMin: 70 }, 1, 10, hoje).total).toBe(2);
-    expect(listarLeads(db, { meses: 3 }, 1, 10, hoje).leads.map((l) => l.cnpj)).toEqual(["3", "1"]);
+    expect(listarLeads(db, {}, 1, 10, hoje).leads.map((l) => l.cnpj)).toEqual(["2", "3", "4", "1"]);
+    expect(listarLeads(db, { notaMin: 70 }, 1, 10, hoje).total).toBe(3);
+    expect(listarLeads(db, { idade: "ate1" }, 1, 10, hoje).leads.map((l) => l.cnpj)).toEqual(["1"]);
+    expect(listarLeads(db, { idade: "1a3" }, 1, 10, hoje).leads.map((l) => l.cnpj)).toEqual(["3"]);
+    // Aberta há exatamente 3 anos já é da faixa seguinte.
+    expect(listarLeads(db, { idade: "3a5" }, 1, 10, hoje).leads.map((l) => l.cnpj)).toEqual(["4"]);
+    expect(listarLeads(db, { idade: "mais5" }, 1, 10, hoje).leads.map((l) => l.cnpj)).toEqual(["2"]);
   });
 
   it("'não contatar' some da listagem padrão e só aparece filtrando por ele", () => {

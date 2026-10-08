@@ -1,4 +1,4 @@
-import { acharRamo, type NomeModelo, type Ramo } from "../config";
+import { acharRamo, type FaixaIdade, type NomeModelo, type Ramo } from "../config";
 import { alvoDaEmpresa, dominioDoEmail, ehProvedorGratuito, estadoVigente } from "../verificador/alvo";
 
 export { dominioDoEmail } from "../verificador/alvo";
@@ -28,6 +28,7 @@ export interface Motivo {
 
 export interface ContextoNota {
   ramos: Ramo[];
+  faixasIdade: FaixaIdade[];
   limiteContador: number;
   provedores: Set<string>;
   hoje: Date;
@@ -111,7 +112,7 @@ export function calcularNota(e: EntradaNota, ctx: ContextoNota): ResultadoNota {
 
   const meses = e.dataAbertura ? mesesDesde(e.dataAbertura, ctx.hoje) : null;
   if (meses !== null) {
-    const pontos = meses < 6 ? 30 : meses < 12 ? 20 : meses < 36 ? 10 : 0;
+    const pontos = ctx.faixasIdade.find((f) => meses < f.ateMeses)?.pontos ?? 0;
     if (pontos > 0) motivos.push({ tipo: "idade", texto: `aberta ${textoTempoAberta(meses)}`, pontos });
   }
 
