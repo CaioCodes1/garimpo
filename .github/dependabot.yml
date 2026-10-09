@@ -5,6 +5,15 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # O projeto roda no Node 24 (engines e CI): tipos de um Node mais novo deixariam usar APIs
+      # que não existem no 24. Sobe junto com o Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 quebra o typescript-eslint ("does not support TS 7.0"). Reavaliar quando
+      # o typescript-eslint suportar.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
